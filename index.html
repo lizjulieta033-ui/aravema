@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aravema Group - Sistema de Gestión de Transporte Agrícola</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="d-flex" id="wrapper">
+        <!-- Sidebar / Menú Lateral -->
+        <div class="sidebar bg-dark border-end" id="sidebar-wrapper">
+            <div class="sidebar-heading text-white p-3 d-flex align-items-center gap-2">
+                <i class="bi bi-truck fs-3 text-success"></i>
+                <div>
+                    <h5 class="m-0 fw-bold">Aravema Group</h5>
+                    <small class="text-secondary" style="font-size: 0.75rem;">Transporte Agrícola - Ica</small>
+                </div>
+            </div>
+            <div class="list-group list-group-flush mt-3">
+                <a href="#" class="list-group-item list-group-item-action nav-link active" data-section="section-panel">
+                    <i class="bi bi-speedometer2 me-2"></i> Panel Principal
+                </a>
+                <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-guias">
+                    <i class="bi bi-file-earmark-text me-2"></i> Guías de Transporte
+                </a>
+                <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-prefacturacion">
+                    <i class="bi bi-calculator me-2"></i> Pre-facturación
+                </a>
+                <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-choferes">
+                    <i class="bi bi-person-badge me-2"></i> Pago a Choferes
+                </a>
+                <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-asistencia">
+                    <i class="bi bi-calendar-check me-2"></i> Asistencia Choferes
+                </a>
+                <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-mantenimiento">
+                    <i class="bi bi-wrench-adjustable me-2"></i> Mantenimiento Flota
+                </a>
+                <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-ingresos-gastos">
+                    <i class="bi bi-wallet2 me-2"></i> Contabilidad / Caja
+                </a>
+            </div>
+        </div>
+
+        <!-- Page Content -->
+        <div id="page-content-wrapper" class="w-100 bg-light">
+            <!-- Navbar Superior -->
+            <nav class="navbar navbar-expand-lg navbar-white bg-white border-bottom px-4 py-3">
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <div>
+                        <h4 class="mb-0 fw-bold text-dark" id="page-title">Sistema de Gestión de Transporte Agrícola</h4>
+                        <small class="text-muted"><i class="bi bi-geo-alt-fill text-danger me-1"></i> Valle de Ica, Perú</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-outline-secondary d-flex align-items-center gap-2 px-3 fw-semibold shadow-sm" onclick="window.print()">
+                            <i class="bi bi-printer"></i> Imprimir Reporte
+                        </button>
+                        <button class="btn btn-primary d-flex align-items-center gap-2 px-3 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoViajeModal">
+                            <i class="bi bi-plus-lg"></i> Registrar Viaje
+                        </button>
+                        <button class="btn btn-outline-danger d-flex align-items-center gap-2 px-3 fw-semibold shadow-sm" onclick="limpiarTodoData()">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reiniciar
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content Container -->
+            <div class="container-fluid p-4">
+
+                <div id="alert-container"></div>
+
+                <!-- SECCIÓN 1: PANEL PRINCIPAL -->
+                <div id="section-panel" class="content-section">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="card card-kpi border-0 shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="text-muted mb-1 small fw-semibold">Total Fletes (Inc. IGV)</p>
+                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-ingresos">S/ 0.00</h3>
+                                    </div>
+                                    <div class="icon-shape bg-success bg-opacity-10 text-success rounded-circle p-3 fs-3">
+                                        <i class="bi bi-cash-stack"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card card-kpi border-0 shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="text-muted mb-1 small fw-semibold">Gastos Operativos & Adm.</p>
+                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-gastos">S/ 0.00</h3>
+                                    </div>
+                                    <div class="icon-shape bg-danger bg-opacity-10 text-danger rounded-circle p-3 fs-3">
+                                        <i class="bi bi-receipt"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card card-kpi border-0 shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="text-muted mb-1 small fw-semibold">Viajes Registrados</p>
+                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-viajes">0</h3>
+                                    </div>
+                                    <div class="icon-shape bg-primary bg-opacity-10 text-primary rounded-circle p-3 fs-3">
+                                        <i class="bi bi-truck"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card card-kpi border-0 shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="text-muted mb-1 small fw-semibold">Cobrado y Pagado</p>
+                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-completados">S/ 0.00</h3>
+                                    </div>
+                                    <div class="icon-shape bg-info bg-opacity-10 text-info rounded-circle p-3 fs-3">
+                                        <i class="bi bi-check2-square"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-lg-12">
+                            <div class="card border-0 shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="fw-bold m-0"><i class="bi bi-truck text-primary me-2"></i>Control de Servicios de Transporte</h5>
+                                    <button class="btn btn-sm btn-primary fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoViajeModal">
+                                        <i class="bi bi-plus-lg me-1"></i> Nuevo Servicio
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle style-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Vehículo / Flota</th>
+                                                <th>Guías (Rem / Trans)</th>
+                                                <th>Conductor</th>
+                                                <th>Destinatario / Ruta</th>
+                                                <th>Jabas / Peso</th>
+                                                <th>Tarifa / Total (c/IGV)</th>
+                                                <th>Facturación</th>
+                                                <th>Estado Pago</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tabla-guias-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: GUÍAS DE TRANSPORTE -->
+                <div id="section-guias" class="content-section d-none">
+                    <div class="card border-0 shadow-sm p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="fw-bold m-0"><i class="bi bi-file-earmark-text text-primary me-2"></i>Listado Detallado de Guías</h4>
+                            <button class="btn btn-primary fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoViajeModal">
+                                <i class="bi bi-plus-lg me-1"></i> Registrar Guía
+                            </button>
+                        </div>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover align-middle style-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Vehículo / Flota</th>
+                                        <th>Guías (Rem / Trans)</th>
+                                        <th>Conductor</th>
+                                        <th>Destinatario / Ruta</th>
+                                        <th>Jabas / Peso</th>
+                                        <th>Tarifa / Total (c/IGV)</th>
+                                        <th>Facturación</th>
+                                        <th>Estado Pago</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-guias-completa-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 3: PRE-FACTURACIÓN -->
+                <div id="section-prefacturacion" class="content-section d-none">
+                    <div class="card border-0 shadow-sm p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="fw-bold m-0"><i class="bi bi-calculator text-primary me-2"></i>Módulo de Pre-facturación por Cliente</h4>
+                            <div>
+                                <span class="badge bg-primary fs-6 shadow-sm" id="total-prefactura">Total Acumulado: S/ 0.00</span>
+                            </div>
+                        </div>
+                        <p class="text-muted">Resumen agrupado por cliente agroindustrial con opción de generar reporte corporativo detallado estilo factura.</p>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Cliente / Destinatario</th>
+                                        <th>Cantidad de Servicios</th>
+                                        <th>Subtotal Sin IGV</th>
+                                        <th>Total a Facturar (c/IGV)</th>
+                                        <th>Estado Facturación</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-prefacturacion-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+<!-- SECCIÓN 4: PAGO A CHOFERES -->
+                <div id="section-choferes" class="content-section d-none">
+                    <div class="card border-0 shadow-sm p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="fw-bold m-0"><i class="bi bi-person-badge text-primary me-2"></i>Liquidación y Pago a Conductores</h4>
+                            <button class="btn btn-success fw-bold btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoPagoModal">
+                                <i class="bi bi-plus-lg me-1"></i> Registrar Viático / Adelanto
+                            </button>
+                        </div>
+                        <p class="text-muted">Liquidación calculada exclusivamente para choferes de la unidad propia <strong>C5T-850</strong> según días laborados (S/ 2500 mensual + S/ 500 viáticos) y deducción de adelantos.</p>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Conductor</th>
+                                        <th>Días Laborados</th>
+                                        <th>Sueldo Base (S/)</th>
+                                        <th>Viáticos Asignados (S/)</th>
+                                        <th>Adelantos / Descuentos (S/)</th>
+                                        <th>Neto a Pagar (S/)</th>
+                                        <th>Estado Pago</th> <!-- <--- ASEGÚRATE DE QUE ESTE TH ESTÉ PRESENTE -->
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-choferes-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 5: ASISTENCIA DE CHOFERES -->
+                <div id="section-asistencia" class="content-section d-none">
+                    <div class="card border-0 shadow-sm p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="fw-bold m-0"><i class="bi bi-calendar-check text-primary me-2"></i>Control de Asistencia y Días Trabajados</h4>
+                            <button class="btn btn-primary fw-bold btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevaAsistenciaModal">
+                                <i class="bi bi-plus-lg me-1"></i> Registrar Día de Asistencia
+                            </button>
+                        </div>
+                        <p class="text-muted">Monitoreo diario de días laborados, descansos, faltas y días en taller para el personal de conducción.</p>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-3">
+                                <div class="p-3 bg-success bg-opacity-10 border border-success rounded text-center shadow-sm">
+                                    <h6 class="text-success fw-bold m-0"><i class="bi bi-check-circle me-1"></i> Días Laborados / Ruta</h6>
+                                    <h3 class="fw-bold text-success mb-0" id="total-dias-laborados">0</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="p-3 bg-info bg-opacity-10 border border-info rounded text-center shadow-sm">
+                                    <h6 class="text-info fw-bold m-0"><i class="bi bi-cup-hot me-1"></i> Descansos / Libres</h6>
+                                    <h3 class="fw-bold text-info mb-0" id="total-dias-descanso">0</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="p-3 bg-warning bg-opacity-10 border border-warning rounded text-center shadow-sm">
+                                    <h6 class="text-warning-emphasis fw-bold m-0"><i class="bi bi-tools me-1"></i> En Taller</h6>
+                                    <h3 class="fw-bold text-warning-emphasis mb-0" id="total-dias-taller">0</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="p-3 bg-danger bg-opacity-10 border border-danger rounded text-center shadow-sm">
+                                    <h6 class="text-danger fw-bold m-0"><i class="bi bi-x-circle me-1"></i> Faltas / Inasistencias</h6>
+                                    <h3 class="fw-bold text-danger mb-0" id="total-dias-faltas">0</h3>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Conductor</th>
+                                        <th>Estado de Asistencia</th>
+                                        <th>Observación / Ruta</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-asistencia-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 6: MANTENIMIENTO -->
+                <div id="section-mantenimiento" class="content-section d-none">
+                    <div class="card border-0 shadow-sm p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="fw-bold m-0"><i class="bi bi-wrench-adjustable text-primary me-2"></i>Control de Mantenimiento de Flota (C5T-850)</h4>
+                            <button class="btn btn-warning fw-bold btn-sm text-dark shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoMantenimientoModal">
+                                <i class="bi bi-plus-lg me-1"></i> Programar Mantenimiento
+                            </button>
+                        </div>
+                        <p class="text-muted">Gestión de revisiones técnicas, preventivas y reparación de la unidad propia de Aravema Group.</p>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Placa / Unidad</th>
+                                        <th>Tipo / Descripción</th>
+                                        <th>Taller / Mecánico</th>
+                                        <th>Estado Actual</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-mantenimiento-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 7: INGRESOS Y GASTOS (CONTABILIDAD GENERAL) -->
+                <div id="section-ingresos-gastos" class="content-section d-none">
+                    <div class="card border-0 shadow-sm p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h4 class="fw-bold m-0"><i class="bi bi-wallet2 text-primary me-2"></i>Contabilidad General: Movimientos de Caja</h4>
+                                <small class="text-muted">Administración global de ingresos (fletes pagados, préstamos) y gastos (pagos a terceros, SUNAT, contador, planilla).</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-success fs-6 d-block mb-1 shadow-sm" id="balance-caja">Balance de Caja: S/ 0.00</span>
+                            </div>
+                        </div>
+                        
+                        <form id="form-registrar-gasto" class="row g-3 bg-light p-3 rounded border mb-4 shadow-sm">
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-arrow-left-right me-1"></i> Tipo Movimiento</label>
+                                <select class="form-select fw-bold interactive-input" id="tipoMovimiento" onchange="actualizarCategoriasMovimiento()">
+                                    <option value="Gasto" class="text-danger">GASTO (-)</option>
+                                    <option value="Ingreso" class="text-success">INGRESO (+)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold"><i class="bi bi-file-text me-1"></i> Concepto / Descripción</label>
+                                <input type="text" class="form-control interactive-input" id="conceptoGasto" placeholder="Ej. Pago SUNAT" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-currency-dollar me-1"></i> Monto (S/)</label>
+                                <input type="number" step="0.01" class="form-control interactive-input" id="montoGasto" placeholder="Ej. 1500.00" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold"><i class="bi bi-tag me-1"></i> Categoría</label>
+                                <select class="form-select interactive-input" id="categoriaGasto"></select>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm"><i class="bi bi-plus-lg me-1"></i> Registrar</button>
+                            </div>
+                        </form>
+
+                        <h5 class="fw-bold mb-3">Historial de Movimientos Financieros</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Concepto / Descripción</th>
+                                        <th>Categoría</th>
+                                        <th>Monto (S/)</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-gastos-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REGISTRAR NUEVO SERVICIO / VIAJE -->
+    <div class="modal fade" id="nuevoViajeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-truck-front me-2"></i>Registrar Servicio de Transporte Agrícola</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-nuevo-viaje">
+                        <div class="row g-3">
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-calendar-event text-primary me-1"></i> Fecha</label>
+                                <input type="date" class="form-control interactive-input" id="fechaServicio" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold"><i class="bi bi-car-front text-primary me-1"></i> Tipo de Vehículo</label>
+                                <select class="form-select fw-bold text-primary interactive-input" id="tipoVehiculo" onchange="toggleVehiculoTercero()">
+                                    <option value="Propio (C5T-850)">Flota Propia (C5T-850)</option>
+                                    <option value="Tercero / Externo">Vehículo Tercero / Externo</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 d-none" id="divCostoTercero">
+                                <label class="form-label fw-semibold text-danger"><i class="bi bi-cash-coin me-1"></i> Pago Tercero (S/)</label>
+                                <input type="number" step="0.01" class="form-control border-danger interactive-input" id="costoTercero" placeholder="Ej. 400.00" value="0.00">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold"><i class="bi bi-person-fill text-primary me-1"></i> Conductor / Dueño</label>
+                                <input type="text" class="form-control interactive-input" id="nombreConductor" placeholder="Ej. Flores Carbajal Ayrton Andre" required>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold"><i class="bi bi-file-earmark-text text-primary me-1"></i> N° Guía Remitente</label>
+                                <input type="text" class="form-control interactive-input" id="guiaRemitente" placeholder="Ej. EG07-00000091" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold"><i class="bi bi-file-earmark-richtext text-primary me-1"></i> N° Guía Transportista</label>
+                                <input type="text" class="form-control interactive-input" id="guiaTransportista" placeholder="Ej. EG03-00000001" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-box-seam text-primary me-1"></i> N° Jabas</label>
+                                <input type="number" class="form-control interactive-input" id="numJabas" placeholder="Ej. 469">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-basket text-primary me-1"></i> Producto / Carga</label>
+                                <input type="text" class="form-control interactive-input" id="detalleProducto" placeholder="Ej. Ají amarillo">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-speedometer text-primary me-1"></i> Peso Bruto</label>
+                                <input type="text" class="form-control interactive-input" id="pesoBruto" placeholder="Ej. 4390 KGM">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold"><i class="bi bi-building text-primary me-1"></i> Destinatario / Cliente</label>
+                                <input type="text" class="form-control interactive-input" id="datosDestinatario" placeholder="Ej. Agro industria San Antonio" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold"><i class="bi bi-geo-alt text-primary me-1"></i> Punto de Partida</label>
+                                <input type="text" class="form-control interactive-input" id="puntoPartida" placeholder="Ej. Cabeza de Toro - Pisco">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold"><i class="bi bi-geo text-primary me-1"></i> Punto de Llegada / Destino</label>
+                                <input type="text" class="form-control interactive-input" id="puntoLlegada" placeholder="Ej. Urb. Parque Industrial - Ica">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-signpost text-primary me-1"></i> Km Inicio</label>
+                                <input type="number" class="form-control interactive-input" id="kmInicio" placeholder="Ej. 117085">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-signpost-2 text-primary me-1"></i> Km Final</label>
+                                <input type="number" class="form-control interactive-input" id="kmFinal" placeholder="Ej. 117283">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-cash text-primary me-1"></i> Tarifa Sin IGV (S/)</label>
+                                <input type="number" step="0.01" class="form-control interactive-input" id="tarifaSinIgv" placeholder="Ej. 550.00" required onchange="calcularTotalesFlete()">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-people text-primary me-1"></i> Estiba (S/)</label>
+                                <input type="number" step="0.01" class="form-control interactive-input" id="montoEstiba" value="0.00" onchange="calcularTotalesFlete()">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold text-success"><i class="bi bi-receipt-cutoff me-1"></i> Total a Facturar Inc. IGV (18%)</label>
+                                <input type="number" step="0.01" class="form-control fw-bold text-success fs-5 bg-success bg-opacity-10 interactive-input" id="totalAFacturar" readonly placeholder="S/ 649.00">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold"><i class="bi bi-file-earmark-check text-primary me-1"></i> Estado Facturación</label>
+                                <select class="form-select interactive-input" id="estadoFacturacion">
+                                    <option value="NO FACTURADO" selected>NO FACTURADO</option>
+                                    <option value="FACTURADO">FACTURADO</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold"><i class="bi bi-credit-card text-primary me-1"></i> Estado de Pago</label>
+                                <select class="form-select interactive-input" id="estadoPago">
+                                    <option value="PENDIENTE" selected>PENDIENTE</option>
+                                    <option value="PAGADO">PAGADO</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 text-end">
+                            <button type="button" class="btn btn-secondary me-2 px-4 shadow-sm" data-bs-dismiss="modal"><i class="bi bi-x-lg me-1"></i> Cancelar</button>
+                            <button type="submit" class="btn btn-primary fw-bold px-4 shadow-sm"><i class="bi bi-save me-1"></i> Guardar Servicio</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Registrar Asistencia -->
+    <div class="modal fade" id="nuevaAsistenciaModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-calendar-plus me-2"></i>Registrar Día de Asistencia</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-nueva-asistencia">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-calendar-date text-primary me-1"></i> Fecha</label>
+                            <input type="date" class="form-control interactive-input" id="asistenciaFecha" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-person text-primary me-1"></i> Conductor</label>
+                            <input type="text" class="form-control interactive-input" id="asistenciaConductor" placeholder="Ej. Flores Carbajal Ayrton Andre" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-check-circle text-primary me-1"></i> Estado de Asistencia</label>
+                            <select class="form-select interactive-input" id="asistenciaEstado">
+                                <option value="Laborado / Ruta" selected>Laborado / En Ruta</option>
+                                <option value="Descanso">Descanso / Franco</option>
+                                <option value="En Taller">En Taller / Mantenimiento</option>
+                                <option value="Falta">Falta / Inasistencia</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-journal-text text-primary me-1"></i> Observación / Ruta Asignada</label>
+                            <input type="text" class="form-control interactive-input" id="asistenciaObs" placeholder="Ej. Ruta C5T-850 Pisco - Ica">
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary me-2 shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary fw-bold shadow-sm">Guardar Registro</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Registrar Viático / Adelanto -->
+    <div class="modal fade" id="nuevoPagoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Registrar Adelanto / Viático a Conductor</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-nuevo-viatico">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-person text-success me-1"></i> Nombre del Conductor</label>
+                            <input type="text" class="form-control interactive-input" id="viaticoConductor" placeholder="Ej. Flores Carbajal Ayrton Andre" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-currency-dollar text-success me-1"></i> Monto del Adelanto / Viático (S/)</label>
+                            <input type="number" step="0.01" class="form-control interactive-input" id="viaticoMonto" placeholder="Ej. 200.00" required>
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary me-2 shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-success fw-bold shadow-sm">Guardar Viático</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Programar Mantenimiento -->
+    <div class="modal fade" id="nuevoMantenimientoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-wrench me-2"></i>Programar Mantenimiento de Flota</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-nuevo-mantenimiento">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-truck me-1"></i> Placa / Unidad</label>
+                            <input type="text" class="form-control interactive-input" id="mantPlaca" value="C5T-850 (Volvo Aravema)" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-file-text me-1"></i> Tipo / Descripción del Trabajo</label>
+                            <input type="text" class="form-control interactive-input" id="mantDesc" placeholder="Ej. Cambio de Aceite & Filtros" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-shop me-1"></i> Taller / Mecánico</label>
+                            <input type="text" class="form-control interactive-input" id="mantTaller" placeholder="Ej. Taller Autorizado Ica" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-info-circle me-1"></i> Estado</label>
+                            <select class="form-select interactive-input" id="mantEstado">
+                                <option value="Operativo">Operativo</option>
+                                <option value="En Taller" selected>En Taller</option>
+                                <option value="Mantenimiento Preventivo">Mantenimiento Preventivo</option>
+                            </select>
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary me-2 shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-warning fw-bold text-dark shadow-sm">Registrar Mantenimiento</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
