@@ -8,41 +8,57 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Tipografías -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
-    <!-- Supabase JS Client (Importante: antes del script.js) -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Gráficos del panel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+    <!-- PDF.js para lectura de guías -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
+    <!-- Barra de carga (aparece mientras se sincronizan los datos) -->
+    <div id="barra-carga"></div>
+
     <!-- PANTALLA DE INICIO DE SESIÓN (LOGIN) -->
-    <div id="login-container" class="d-flex justify-content-center align-items-center vh-100 bg-dark bg-gradient">
+    <div id="login-container" class="d-flex justify-content-center align-items-center min-vh-100 login-agro px-3">
         <div class="card shadow-lg p-4 border-0 rounded-4 style-login-card" style="max-width: 420px; width: 100%;">
             <div class="text-center mb-4">
-                <div class="icon-shape bg-success bg-opacity-10 text-success rounded-circle mx-auto p-3 mb-2 fs-1" style="width: 70px; height: 70px;">
+                <div class="logo-agro mx-auto mb-3">
                     <i class="bi bi-truck"></i>
+                    <span class="logo-hoja"><i class="bi bi-flower1"></i></span>
                 </div>
-                <h4 class="fw-bold text-dark m-0">Aravema Group S.A.C.</h4>
-                <small class="text-muted">Sistema de Gestión de Transporte Agrícola</small>
+                <h4 class="fw-bold text-dark m-0 font-titulo">Aravema Group S.A.C.</h4>
+                <small class="text-muted">Transporte Agrícola · Del campo a su destino</small>
             </div>
 
             <div id="login-error-alert"></div>
 
             <form id="form-login">
                 <div class="mb-3">
-                    <label class="form-label fw-semibold"><i class="bi bi-person text-primary me-1"></i> Usuario</label>
-                    <input type="text" class="form-control interactive-input" id="loginUsuario" placeholder="Ingrese su usuario" required>
+                    <label class="form-label fw-semibold"><i class="bi bi-envelope text-primary me-1"></i> Correo electrónico</label>
+                    <input type="email" class="form-control interactive-input" id="loginEmail" placeholder="usuario@correo.com" autocomplete="username" required>
                 </div>
                 <div class="mb-4">
                     <label class="form-label fw-semibold"><i class="bi bi-key text-primary me-1"></i> Contraseña</label>
-                    <input type="password" class="form-control interactive-input" id="loginPassword" placeholder="Ingrese su contraseña" required>
+                    <input type="password" class="form-control interactive-input" id="loginPassword" placeholder="Ingrese su contraseña" autocomplete="current-password" required>
                 </div>
                 <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm fs-6">
                     <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
                 </button>
             </form>
 
-            <div class="text-center mt-4">
+            <div class="text-center mt-3">
+                <a href="#" class="small" onclick="olvideMiPassword(event)">¿Olvidaste tu contraseña?</a>
+            </div>
+
+            <div class="text-center mt-3">
                 <small class="text-muted" style="font-size: 0.75rem;">RUC: 20615364984 • Ica, Perú</small>
             </div>
         </div>
@@ -50,22 +66,32 @@
 
     <!-- PANEL DEL SISTEMA -->
     <div class="d-flex d-none" id="wrapper">
+        <!-- Fondo oscuro detrás del menú en celular -->
+        <div id="sidebar-overlay" onclick="toggleMenu(false)"></div>
+
         <!-- Sidebar -->
-        <div class="sidebar bg-dark border-end" id="sidebar-wrapper">
+        <div class="sidebar" id="sidebar-wrapper">
             <div class="sidebar-heading text-white p-3 d-flex align-items-center gap-2">
-                <i class="bi bi-truck fs-3 text-success"></i>
+                <div class="logo-agro logo-agro-sm">
+                    <i class="bi bi-truck"></i>
+                </div>
                 <div>
-                    <h5 class="m-0 fw-bold">Aravema Group</h5>
-                    <small class="text-secondary" style="font-size: 0.75rem;">Transporte Agrícola - Ica</small>
+                    <h5 class="m-0 fw-bold font-titulo">Aravema Group</h5>
+                    <small class="sidebar-subtitulo"><i class="bi bi-geo-alt-fill me-1"></i>Valle de Ica, Perú</small>
                 </div>
             </div>
             <div class="px-3 pt-3">
-                <div class="bg-secondary bg-opacity-25 rounded p-2 text-white d-flex align-items-center gap-2">
-                    <i class="bi bi-person-badge-fill text-warning fs-5"></i>
-                    <div>
-                        <div class="fw-bold text-truncate" style="max-width: 170px;" id="user-display-name">Usuario</div>
-                        <small class="badge bg-warning text-dark" id="user-role-badge">ROL</small>
+                <div class="tarjeta-usuario rounded-3 p-2 text-white">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-person-badge-fill text-warning fs-5"></i>
+                        <div>
+                            <div class="fw-bold text-truncate" style="max-width: 170px;" id="user-display-name">Usuario</div>
+                            <small class="badge bg-warning text-dark" id="user-role-badge">ROL</small>
+                        </div>
                     </div>
+                    <button class="btn btn-sm btn-outline-light w-100 mt-2" onclick="abrirCambioPassword(false)">
+                        <i class="bi bi-shield-lock me-1"></i> Cambiar contraseña
+                    </button>
                 </div>
             </div>
             <div class="list-group list-group-flush mt-3">
@@ -78,17 +104,23 @@
                 <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-prefacturacion">
                     <i class="bi bi-calculator me-2"></i> Pre-facturación
                 </a>
-                <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-choferes">
-                    <i class="bi bi-person-badge me-2"></i> Pago a Choferes
+                <a href="#" class="list-group-item list-group-item-action nav-link solo-admin" data-section="section-choferes">
+                    <i class="bi bi-person-badge me-2"></i> Pagos Choferes / Terceros
                 </a>
                 <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-asistencia">
                     <i class="bi bi-calendar-check me-2"></i> Asistencia Choferes
                 </a>
+                <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-bitacora">
+                    <i class="bi bi-speedometer me-2"></i> Bitácora / Kilometraje
+                </a>
                 <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-mantenimiento">
                     <i class="bi bi-wrench-adjustable me-2"></i> Mantenimiento Flota
                 </a>
-                <a href="#" class="list-group-item list-group-item-action nav-link" id="nav-caja" data-section="section-ingresos-gastos">
+                <a href="#" class="list-group-item list-group-item-action nav-link solo-admin" data-section="section-ingresos-gastos">
                     <i class="bi bi-wallet2 me-2"></i> Contabilidad / Caja
+                </a>
+                <a href="#" class="list-group-item list-group-item-action nav-link solo-admin" data-section="section-usuarios">
+                    <i class="bi bi-people me-2"></i> Usuarios
                 </a>
             </div>
         </div>
@@ -96,21 +128,26 @@
         <!-- Page Content -->
         <div id="page-content-wrapper" class="w-100 bg-light">
             <!-- Navbar Superior -->
-            <nav class="navbar navbar-expand-lg navbar-white bg-white border-bottom px-4 py-3">
-                <div class="d-flex justify-content-between align-items-center w-100">
-                    <div>
-                        <h4 class="mb-0 fw-bold text-dark" id="page-title">Sistema de Gestión de Transporte Agrícola</h4>
-                        <small class="text-muted"><i class="bi bi-geo-alt-fill text-danger me-1"></i> Valle de Ica, Perú</small>
+            <nav class="navbar barra-superior px-3 px-lg-4 py-3">
+                <div class="d-flex justify-content-between align-items-center w-100 gap-2">
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                        <button class="btn btn-light btn-menu d-lg-none" onclick="toggleMenu()" aria-label="Abrir menú">
+                            <i class="bi bi-list fs-4"></i>
+                        </button>
+                        <div class="min-w-0">
+                            <h4 class="mb-0 fw-bold text-dark font-titulo text-truncate" id="page-title">Panel Principal</h4>
+                            <small class="text-muted d-block text-truncate" id="page-subtitle">Resumen de tu operación</small>
+                        </div>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-outline-secondary d-flex align-items-center gap-2 px-3 fw-semibold shadow-sm" onclick="window.print()">
-                            <i class="bi bi-printer"></i> Imprimir Reporte
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <button class="btn btn-outline-secondary d-flex align-items-center gap-2 fw-semibold" onclick="window.print()" title="Imprimir reporte">
+                            <i class="bi bi-printer"></i><span class="d-none d-xl-inline">Imprimir</span>
                         </button>
-                        <button class="btn btn-primary d-flex align-items-center gap-2 px-3 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoViajeModal">
-                            <i class="bi bi-plus-lg"></i> Registrar Viaje
+                        <button class="btn btn-primary d-flex align-items-center gap-2 fw-bold btn-brillo" data-bs-toggle="modal" data-bs-target="#nuevoViajeModal">
+                            <i class="bi bi-plus-lg"></i><span class="d-none d-md-inline">Registrar Viaje</span>
                         </button>
-                        <button class="btn btn-outline-danger d-flex align-items-center gap-2 px-3 fw-semibold shadow-sm" onclick="cerrarSesion()">
-                            <i class="bi bi-box-arrow-right"></i> Salir
+                        <button class="btn btn-outline-danger d-flex align-items-center gap-2 fw-semibold" onclick="cerrarSesion()" title="Salir">
+                            <i class="bi bi-box-arrow-right"></i><span class="d-none d-xl-inline">Salir</span>
                         </button>
                     </div>
                 </div>
@@ -123,39 +160,14 @@
 
                 <!-- SECCIÓN 1: PANEL PRINCIPAL -->
                 <div id="section-panel" class="content-section">
-                    <div class="row g-3 mb-4" id="kpi-container">
-                        <div class="col-md-3">
+                    <div class="row g-3 mb-4 solo-admin" id="kpi-container">
+                        <div class="col-sm-6 col-xl-3">
                             <div class="card card-kpi border-0 shadow-sm p-3">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <p class="text-muted mb-1 small fw-semibold">Total Fletes (Inc. IGV)</p>
-                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-ingresos">S/ 0.00</h3>
-                                    </div>
-                                    <div class="icon-shape bg-success bg-opacity-10 text-success rounded-circle p-3 fs-3">
-                                        <i class="bi bi-cash-stack"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card card-kpi border-0 shadow-sm p-3">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <p class="text-muted mb-1 small fw-semibold">Gastos Operativos & Adm.</p>
-                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-gastos">S/ 0.00</h3>
-                                    </div>
-                                    <div class="icon-shape bg-danger bg-opacity-10 text-danger rounded-circle p-3 fs-3">
-                                        <i class="bi bi-receipt"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card card-kpi border-0 shadow-sm p-3">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <p class="text-muted mb-1 small fw-semibold">Viajes Registrados</p>
-                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-viajes">0</h3>
+                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-fletes">S/ 0.00</h3>
+                                        <small class="text-muted"><span id="kpi-viajes">0</span> viajes registrados</small>
                                     </div>
                                     <div class="icon-shape bg-primary bg-opacity-10 text-primary rounded-circle p-3 fs-3">
                                         <i class="bi bi-truck"></i>
@@ -163,16 +175,76 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-sm-6 col-xl-3">
                             <div class="card card-kpi border-0 shadow-sm p-3">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <p class="text-muted mb-1 small fw-semibold">Cobrado y Pagado</p>
-                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-completados">S/ 0.00</h3>
+                                        <p class="text-muted mb-1 small fw-semibold">Por Cobrar (Facturado)</p>
+                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-por-cobrar">S/ 0.00</h3>
+                                        <small class="text-muted">Facturado, falta que el fundo pague</small>
                                     </div>
-                                    <div class="icon-shape bg-info bg-opacity-10 text-info rounded-circle p-3 fs-3">
-                                        <i class="bi bi-check2-square"></i>
+                                    <div class="icon-shape bg-warning bg-opacity-10 text-warning rounded-circle p-3 fs-3">
+                                        <i class="bi bi-hourglass-split"></i>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="card card-kpi border-0 shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="text-muted mb-1 small fw-semibold">Cobrado (Pagado)</p>
+                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-cobrado">S/ 0.00</h3>
+                                        <small class="text-muted">Ya ingresó a caja</small>
+                                    </div>
+                                    <div class="icon-shape bg-success bg-opacity-10 text-success rounded-circle p-3 fs-3">
+                                        <i class="bi bi-cash-stack"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="card card-kpi border-0 shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="text-muted mb-1 small fw-semibold">Gastos Operativos & Adm.</p>
+                                        <h3 class="fw-bold mb-0 text-dark" id="kpi-gastos">S/ 0.00</h3>
+                                        <small class="text-muted">Incluye pagos a choferes y terceros</small>
+                                    </div>
+                                    <div class="icon-shape bg-danger bg-opacity-10 text-danger rounded-circle p-3 fs-3">
+                                        <i class="bi bi-receipt"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos (solo administrador) -->
+                    <div class="row g-3 mb-4 solo-admin" id="graficos-container">
+                        <div class="col-lg-7">
+                            <div class="card border-0 shadow-sm p-3 h-100 tarjeta-grafico">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <h6 class="fw-bold m-0 font-titulo"><i class="bi bi-bar-chart-fill text-primary me-2"></i>Fletes por Mes</h6>
+                                        <small class="text-muted">Total facturable (c/IGV) de los últimos 6 meses</small>
+                                    </div>
+                                    <span class="badge rounded-pill bg-primary bg-opacity-10 text-primary" id="grafico-fletes-total"></span>
+                                </div>
+                                <div class="grafico-caja"><canvas id="grafico-fletes" aria-label="Fletes por mes" role="img"></canvas></div>
+                            </div>
+                        </div>
+                        <div class="col-lg-5">
+                            <div class="card border-0 shadow-sm p-3 h-100 tarjeta-grafico">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <h6 class="fw-bold m-0 font-titulo"><i class="bi bi-pie-chart-fill text-danger me-2"></i>Gastos del Mes por Categoría</h6>
+                                        <small class="text-muted" id="grafico-gastos-subtitulo">Mes actual</small>
+                                    </div>
+                                </div>
+                                <div class="grafico-caja"><canvas id="grafico-gastos" aria-label="Gastos del mes por categoría" role="img"></canvas></div>
+                                <div class="estado-vacio d-none" id="grafico-gastos-vacio">
+                                    <i class="bi bi-flower2"></i>
+                                    <span>Sin gastos registrados este mes</span>
                                 </div>
                             </div>
                         </div>
@@ -181,11 +253,19 @@
                     <div class="row g-4">
                         <div class="col-lg-12">
                             <div class="card border-0 shadow-sm p-3">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="fw-bold m-0"><i class="bi bi-truck text-primary me-2"></i>Control de Servicios de Transporte</h5>
-                                    <button class="btn btn-sm btn-primary fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoViajeModal">
-                                        <i class="bi bi-plus-lg me-1"></i> Nuevo Servicio
-                                    </button>
+                                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                                    <div>
+                                        <h5 class="fw-bold m-0 font-titulo"><i class="bi bi-truck text-primary me-2"></i>Últimos Servicios de Transporte</h5>
+                                        <small class="text-muted">Los 8 más recientes</small>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-sm btn-outline-primary fw-semibold" onclick="cambiarSeccion('section-guias')">
+                                            Ver todas <i class="bi bi-arrow-right ms-1"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-primary fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoViajeModal">
+                                            <i class="bi bi-plus-lg me-1"></i> Nuevo Servicio
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="table-responsive">
                                     <table class="table table-hover align-middle style-table">
@@ -193,7 +273,7 @@
                                             <tr>
                                                 <th>Fecha</th>
                                                 <th>Vehículo / Flota</th>
-                                                <th>Guías (Rem / Trans)</th>
+                                                <th>Guía Remitente</th>
                                                 <th>Conductor</th>
                                                 <th>Destinatario / Ruta</th>
                                                 <th>Jabas / Peso</th>
@@ -214,19 +294,41 @@
                 <!-- SECCIÓN 2: GUÍAS DE TRANSPORTE -->
                 <div id="section-guias" class="content-section d-none">
                     <div class="card border-0 shadow-sm p-4">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="fw-bold m-0"><i class="bi bi-file-earmark-text text-primary me-2"></i>Listado Detallado de Guías</h4>
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <h4 class="fw-bold m-0 font-titulo"><i class="bi bi-file-earmark-text text-primary me-2"></i>Listado Detallado de Guías</h4>
                             <button class="btn btn-primary fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoViajeModal">
                                 <i class="bi bi-plus-lg me-1"></i> Registrar Guía
                             </button>
                         </div>
-                        <div class="table-responsive mt-3">
+
+                        <!-- Buscador y filtros -->
+                        <div class="row g-2 align-items-center barra-filtros">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="search" class="form-control" id="buscarGuia" placeholder="Buscar por guía, chofer, cliente, producto...">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex flex-wrap gap-1" id="filtros-guia">
+                                    <button type="button" class="btn btn-sm chip-filtro activo" data-filtro="TODAS">Todas</button>
+                                    <button type="button" class="btn btn-sm chip-filtro" data-filtro="POR_FACTURAR">Por facturar</button>
+                                    <button type="button" class="btn btn-sm chip-filtro" data-filtro="POR_COBRAR">Por cobrar</button>
+                                    <button type="button" class="btn btn-sm chip-filtro" data-filtro="COBRADAS">Cobradas</button>
+                                    <button type="button" class="btn btn-sm chip-filtro" data-filtro="PROPIO">Flota propia</button>
+                                    <button type="button" class="btn btn-sm chip-filtro" data-filtro="TERCERO">Terceros</button>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted mt-2 d-block" id="conteo-guias"></small>
+
+                        <div class="table-responsive mt-2">
                             <table class="table table-hover align-middle style-table">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Fecha</th>
                                         <th>Vehículo / Flota</th>
-                                        <th>Guías (Rem / Trans)</th>
+                                        <th>Guía Remitente</th>
                                         <th>Conductor</th>
                                         <th>Destinatario / Ruta</th>
                                         <th>Jabas / Peso</th>
@@ -244,15 +346,13 @@
 
                 <!-- SECCIÓN 3: PRE-FACTURACIÓN -->
                 <div id="section-prefacturacion" class="content-section d-none">
-                    <div class="card border-0 shadow-sm p-4">
+                    <div class="card border-0 shadow-sm p-4 mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="fw-bold m-0"><i class="bi bi-calculator text-primary me-2"></i>Módulo de Pre-facturación por Cliente</h4>
-                            <div>
-                                <span class="badge bg-primary fs-6 shadow-sm" id="total-prefactura">Total Acumulado: S/ 0.00</span>
-                            </div>
+                            <h4 class="fw-bold m-0"><i class="bi bi-calculator text-primary me-2"></i>Por Facturar (agrupado por cliente)</h4>
+                            <span class="badge bg-primary fs-6 shadow-sm" id="total-prefactura">Por facturar: S/ 0.00</span>
                         </div>
-                        <p class="text-muted">Resumen agrupado por cliente agroindustrial con opción de generar reporte corporativo detallado estilo factura.</p>
-                        <div class="table-responsive mt-3">
+                        <p class="text-muted">Servicios con estado <strong>NO FACTURADO</strong>. Imprime la pre-factura y, una vez emitida la factura en SUNAT, márcalos como facturados.</p>
+                        <div class="table-responsive mt-2">
                             <table class="table table-hover align-middle">
                                 <thead class="table-light">
                                     <tr>
@@ -260,40 +360,125 @@
                                         <th>Cantidad de Servicios</th>
                                         <th>Subtotal Sin IGV</th>
                                         <th>Total a Facturar (c/IGV)</th>
-                                        <th>Estado Facturación</th>
-                                        <th>Acciones</th>
+                                        <th>Estado</th>
+                                        <th class="th-acciones">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-prefacturacion-body"></tbody>
                             </table>
                         </div>
                     </div>
-                </div>
 
-                <!-- SECCIÓN 4: PAGO A CHOFERES -->
-                <div id="section-choferes" class="content-section d-none">
                     <div class="card border-0 shadow-sm p-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="fw-bold m-0"><i class="bi bi-person-badge text-primary me-2"></i>Liquidación y Pago a Conductores</h4>
-                            <button class="btn btn-success fw-bold btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoPagoModal">
-                                <i class="bi bi-plus-lg me-1"></i> Registrar Viático / Adelanto
+                            <h4 class="fw-bold m-0"><i class="bi bi-hourglass-split text-warning me-2"></i>Facturado — Pendiente de Cobro</h4>
+                            <span class="badge bg-warning text-dark fs-6 shadow-sm" id="total-por-cobrar">Por cobrar: S/ 0.00</span>
+                        </div>
+                        <p class="text-muted">Cuando el fundo deposite, márcalo como cobrado y el monto pasará a la caja.</p>
+                        <div class="table-responsive mt-2">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Cliente / Destinatario</th>
+                                        <th>Servicios Facturados</th>
+                                        <th>Total por Cobrar (c/IGV)</th>
+                                        <th class="th-acciones">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-por-cobrar-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 4: PAGOS A CHOFERES Y TERCEROS -->
+                <div id="section-choferes" class="content-section d-none">
+                    <div class="card border-0 shadow-sm p-3 mb-4">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold small mb-1"><i class="bi bi-calendar-month me-1"></i> Mes</label>
+                                <input type="month" class="form-control form-control-sm" id="pagoMes">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold small mb-1"><i class="bi bi-calendar-range me-1"></i> Período</label>
+                                <select class="form-select form-select-sm" id="pagoPeriodo">
+                                    <option value="MES">Mes completo</option>
+                                    <option value="Q1">1ra quincena (1 al 15)</option>
+                                    <option value="Q2">2da quincena (16 a fin de mes)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted" id="pago-rango-texto"></small>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button class="btn btn-success fw-bold btn-sm shadow-sm w-100" onclick="abrirPago('')">
+                                    <i class="bi bi-plus-lg me-1"></i> Registrar Pago
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm p-4 mb-4">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+                            <h4 class="fw-bold m-0"><i class="bi bi-person-badge text-primary me-2"></i>Choferes de la Empresa (C5T-850)</h4>
+                            <button class="btn btn-sm btn-outline-primary fw-bold" onclick="abrirConfigChofer(null)">
+                                <i class="bi bi-person-plus me-1"></i> Agregar Chofer
                             </button>
                         </div>
-                        <p class="text-muted">Liquidación calculada exclusivamente para choferes de la unidad propia <strong>C5T-850</strong> según días laborados y deducción de adelantos.</p>
-                        <div class="table-responsive mt-3">
+                        <p class="text-muted small">Los días laborados salen solos de las guías de la flota propia (más los días "Laborado" que registres a mano en Asistencia). El <strong>saldo pendiente</strong> es todo lo ganado menos todo lo pagado, sin importar la fecha en que se pagó.</p>
+                        <div class="table-responsive">
                             <table class="table table-hover align-middle">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Conductor</th>
-                                        <th>Días Laborados</th>
-                                        <th>Sueldo Base (S/)</th>
-                                        <th>Viáticos Asignados (S/)</th>
-                                        <th>Adelantos / Descuentos (S/)</th>
-                                        <th>Neto a Pagar (S/)</th>
-                                        <th>Estado Pago</th>
+                                        <th>Modalidad</th>
+                                        <th>Días en Período</th>
+                                        <th>Ganado en Período</th>
+                                        <th>Pagado en Período</th>
+                                        <th>Saldo Pendiente Total</th>
+                                        <th class="th-acciones">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-choferes-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm p-4 mb-4">
+                        <h4 class="fw-bold mb-1"><i class="bi bi-truck-flatbed text-warning me-2"></i>Transportistas Terceros (cuenta corriente)</h4>
+                        <p class="text-muted small">Lo acordado sale de las guías con vehículo tercero. Registra cada pago o adelanto (por día, por semana o parcial) y el saldo se actualiza solo.</p>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Transportista / Empresa</th>
+                                        <th>Viajes en Período</th>
+                                        <th>Acordado en Período</th>
+                                        <th>Acordado Total</th>
+                                        <th>Pagado Total</th>
+                                        <th>Saldo Pendiente</th>
+                                        <th class="th-acciones">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-terceros-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm p-4">
+                        <h5 class="fw-bold mb-3"><i class="bi bi-clock-history text-secondary me-2"></i>Pagos y Adelantos del Período</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>A quién</th>
+                                        <th>Concepto</th>
+                                        <th>Monto</th>
+                                        <th class="th-acciones">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-historial-pagos-body"></tbody>
                             </table>
                         </div>
                     </div>
@@ -301,35 +486,39 @@
 
                 <!-- SECCIÓN 5: ASISTENCIA DE CHOFERES -->
                 <div id="section-asistencia" class="content-section d-none">
-                    <div class="card border-0 shadow-sm p-4">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="fw-bold m-0"><i class="bi bi-calendar-check text-primary me-2"></i>Control de Asistencia y Días Trabajados</h4>
-                            <button class="btn btn-primary fw-bold btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevaAsistenciaModal">
-                                <i class="bi bi-plus-lg me-1"></i> Registrar Día de Asistencia
-                            </button>
+                    <div class="card border-0 shadow-sm p-4 mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <h4 class="fw-bold m-0"><i class="bi bi-calendar-check text-primary me-2"></i>Choferes de la Empresa</h4>
+                            <div class="d-flex gap-2 align-items-center">
+                                <label class="small fw-semibold text-muted" for="asistenciaMes">Mes:</label>
+                                <input type="month" class="form-control form-control-sm" id="asistenciaMes" style="width: 170px;">
+                                <button class="btn btn-primary fw-bold btn-sm shadow-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#nuevaAsistenciaModal">
+                                    <i class="bi bi-plus-lg me-1"></i> Registrar Día
+                                </button>
+                            </div>
                         </div>
-                        <p class="text-muted">Monitoreo diario de días laborados, descansos, faltas y días en taller para el personal de conducción.</p>
+                        <p class="text-muted">Los días con guía de la flota propia se registran <strong>solos</strong>. Registra a mano solo descansos, días en taller, faltas o días trabajados sin guía.</p>
 
                         <div class="row g-3 mb-4">
-                            <div class="col-md-3">
+                            <div class="col-6 col-lg-3">
                                 <div class="p-3 bg-success bg-opacity-10 border border-success rounded text-center shadow-sm">
                                     <h6 class="text-success fw-bold m-0"><i class="bi bi-check-circle me-1"></i> Días Laborados / Ruta</h6>
                                     <h3 class="fw-bold text-success mb-0" id="total-dias-laborados">0</h3>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-6 col-lg-3">
                                 <div class="p-3 bg-info bg-opacity-10 border border-info rounded text-center shadow-sm">
                                     <h6 class="text-info fw-bold m-0"><i class="bi bi-cup-hot me-1"></i> Descansos / Libres</h6>
                                     <h3 class="fw-bold text-info mb-0" id="total-dias-descanso">0</h3>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-6 col-lg-3">
                                 <div class="p-3 bg-warning bg-opacity-10 border border-warning rounded text-center shadow-sm">
                                     <h6 class="text-warning-emphasis fw-bold m-0"><i class="bi bi-tools me-1"></i> En Taller</h6>
                                     <h3 class="fw-bold text-warning-emphasis mb-0" id="total-dias-taller">0</h3>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-6 col-lg-3">
                                 <div class="p-3 bg-danger bg-opacity-10 border border-danger rounded text-center shadow-sm">
                                     <h6 class="text-danger fw-bold m-0"><i class="bi bi-x-circle me-1"></i> Faltas / Inasistencias</h6>
                                     <h3 class="fw-bold text-danger mb-0" id="total-dias-faltas">0</h3>
@@ -344,11 +533,97 @@
                                         <th>Fecha</th>
                                         <th>Conductor</th>
                                         <th>Estado de Asistencia</th>
+                                        <th>Origen</th>
                                         <th>Observación / Ruta</th>
                                         <th class="th-acciones">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-asistencia-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm p-4">
+                        <h4 class="fw-bold mb-1"><i class="bi bi-truck-flatbed text-warning me-2"></i>Choferes Contratados (Terceros)</h4>
+                        <p class="text-muted">Viajes realizados por vehículos de terceros en el mes, tomados de las guías.</p>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Chofer</th>
+                                        <th>Transportista / Empresa</th>
+                                        <th>Guía</th>
+                                        <th>Destinatario / Ruta</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-asistencia-terceros-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN: BITÁCORA DIARIA DE KILOMETRAJE -->
+                <div id="section-bitacora" class="content-section d-none">
+                    <div class="card border-0 shadow-sm p-4 mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <div>
+                                <h4 class="fw-bold m-0 font-titulo"><i class="bi bi-speedometer text-primary me-2"></i>Bitácora Diaria · C5T-850</h4>
+                                <small class="text-muted">Km del odómetro al salir de la cochera y al regresar. En la mañana registra la salida; en la tarde completa la llegada.</small>
+                            </div>
+                            <div class="d-flex gap-2 align-items-center">
+                                <label class="small fw-semibold text-muted" for="bitacoraMes">Mes:</label>
+                                <input type="month" class="form-control form-control-sm" id="bitacoraMes" style="width: 170px;">
+                                <button class="btn btn-primary fw-bold btn-sm shadow-sm text-nowrap" onclick="abrirBitacora()">
+                                    <i class="bi bi-plus-lg me-1"></i> Registrar Día
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 my-2">
+                            <div class="col-6 col-lg-3">
+                                <div class="mini-kpi">
+                                    <small>Km recorridos en el mes</small>
+                                    <div id="bit-km-mes">0 km</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-lg-3">
+                                <div class="mini-kpi">
+                                    <small>Días con registro</small>
+                                    <div id="bit-dias">0</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-lg-3">
+                                <div class="mini-kpi">
+                                    <small>Promedio por día</small>
+                                    <div id="bit-promedio">0 km</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-lg-3">
+                                <div class="mini-kpi">
+                                    <small>Fletes por km (sin IGV)</small>
+                                    <div id="bit-soles-km">S/ 0.00</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive mt-2">
+                            <table class="table table-hover align-middle style-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Chofer</th>
+                                        <th>Km Salida</th>
+                                        <th>Km Llegada</th>
+                                        <th>Recorrido</th>
+                                        <th>Viajes del Día</th>
+                                        <th>Fletes (sin IGV)</th>
+                                        <th>S/ por km</th>
+                                        <th>Revisión</th>
+                                        <th class="th-acciones">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-bitacora-body"></tbody>
                             </table>
                         </div>
                     </div>
@@ -387,20 +662,25 @@
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
                                 <h4 class="fw-bold m-0"><i class="bi bi-wallet2 text-primary me-2"></i>Contabilidad General: Movimientos de Caja</h4>
-                                <small class="text-muted">Administración global de ingresos y gastos.</small>
+                                <small class="text-muted">Balance = fletes cobrados + otros ingresos − gastos (incluye pagos a choferes y terceros).</small>
                             </div>
                             <div class="text-end">
                                 <span class="badge bg-success fs-6 d-block mb-1 shadow-sm" id="balance-caja">Balance de Caja: S/ 0.00</span>
+                                <span class="badge bg-warning text-dark d-block shadow-sm" id="por-cobrar-caja">Por cobrar: S/ 0.00</span>
                             </div>
                         </div>
-                        
-                        <form id="form-registrar-gasto" class="row g-3 bg-light p-3 rounded border mb-4 shadow-sm">
+
+                        <form id="form-registrar-gasto" class="row g-3 bg-light p-3 rounded border mb-2 shadow-sm">
                             <div class="col-md-2">
-                                <label class="form-label fw-semibold"><i class="bi bi-arrow-left-right me-1"></i> Tipo Movimiento</label>
+                                <label class="form-label fw-semibold"><i class="bi bi-arrow-left-right me-1"></i> Tipo</label>
                                 <select class="form-select fw-bold interactive-input" id="tipoMovimiento" onchange="actualizarCategoriasMovimiento()">
                                     <option value="Gasto" class="text-danger">GASTO (-)</option>
                                     <option value="Ingreso" class="text-success">INGRESO (+)</option>
                                 </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-calendar me-1"></i> Fecha</label>
+                                <input type="date" class="form-control interactive-input" id="fechaGasto" required>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold"><i class="bi bi-file-text me-1"></i> Concepto / Descripción</label>
@@ -408,22 +688,24 @@
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label fw-semibold"><i class="bi bi-currency-dollar me-1"></i> Monto (S/)</label>
-                                <input type="number" step="0.01" class="form-control interactive-input" id="montoGasto" placeholder="Ej. 1500.00" required>
+                                <input type="number" step="0.01" min="0.01" class="form-control interactive-input" id="montoGasto" placeholder="Ej. 1500.00" required>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label fw-semibold"><i class="bi bi-tag me-1"></i> Categoría</label>
                                 <select class="form-select interactive-input" id="categoriaGasto"></select>
                             </div>
-                            <div class="col-md-2 d-flex align-items-end">
-                                <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm"><i class="bi bi-plus-lg me-1"></i> Registrar</button>
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm" title="Registrar"><i class="bi bi-plus-lg"></i></button>
                             </div>
                         </form>
+                        <small class="text-muted d-block mb-4"><i class="bi bi-info-circle me-1"></i> Los pagos a choferes y transportistas se registran desde <strong>Pagos Choferes / Terceros</strong> para que se descuenten de su saldo; igual aparecen aquí.</small>
 
                         <h5 class="fw-bold mb-3">Historial de Movimientos Financieros</h5>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle">
                                 <thead class="table-light">
                                     <tr>
+                                        <th>Fecha</th>
                                         <th>Tipo</th>
                                         <th>Concepto / Descripción</th>
                                         <th>Categoría</th>
@@ -437,119 +719,261 @@
                     </div>
                 </div>
 
+                <!-- SECCIÓN 8: USUARIOS (SOLO ADMINISTRADOR) -->
+                <div id="section-usuarios" class="content-section d-none">
+                    <div class="card border-0 shadow-sm p-4">
+                        <h4 class="fw-bold mb-1"><i class="bi bi-people text-primary me-2"></i>Usuarios del Sistema</h4>
+                        <p class="text-muted">Crea perfiles de apoyo (asistentes). Un usuario desactivado ya no puede entrar ni ver datos.</p>
+
+                        <form id="form-nuevo-usuario" class="row g-3 bg-light p-3 rounded border mb-4 shadow-sm">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold"><i class="bi bi-person me-1"></i> Nombre</label>
+                                <input type="text" class="form-control interactive-input" id="usuarioNombre" placeholder="Ej. María Pérez (Asistente)" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold"><i class="bi bi-envelope me-1"></i> Correo (para iniciar sesión)</label>
+                                <input type="email" class="form-control interactive-input" id="usuarioEmail" placeholder="maria@correo.com" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-key me-1"></i> Contraseña inicial</label>
+                                <input type="text" class="form-control interactive-input" id="usuarioPassword" minlength="6" placeholder="Mín. 6 caracteres" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold"><i class="bi bi-shield me-1"></i> Rol</label>
+                                <select class="form-select interactive-input" id="usuarioRol">
+                                    <option value="ASISTENTE" selected>ASISTENTE</option>
+                                    <option value="ADMIN">ADMIN</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm"><i class="bi bi-person-plus me-1"></i> Crear</button>
+                            </div>
+                        </form>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Correo</th>
+                                        <th>Rol</th>
+                                        <th>Estado</th>
+                                        <th class="th-acciones">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-usuarios-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
 
+    <!-- Listas de sugerencias para los campos de nombres -->
+    <datalist id="lista-choferes"></datalist>
+    <datalist id="lista-terceros"></datalist>
+    <datalist id="lista-clientes"></datalist>
+
     <!-- MODALES -->
     <!-- Modal Nuevo Viaje -->
     <div class="modal fade" id="nuevoViajeModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content shadow-lg">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content shadow-lg modal-viaje">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-truck-front me-2"></i>Registrar Servicio de Transporte Agrícola</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="modal-icono"><i class="bi bi-truck-front"></i></div>
+                        <div>
+                            <h5 class="modal-title fw-bold font-titulo m-0">Registrar Servicio de Transporte</h5>
+                            <small class="opacity-75">Sube la guía en PDF o completa los datos · los campos con <span class="text-warning">*</span> son obligatorios</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <form id="form-nuevo-viaje">
+                <form id="form-nuevo-viaje" class="d-flex flex-column overflow-hidden">
+                    <div class="modal-body p-3 p-lg-4">
+
+                        <!-- LECTOR AUTOMÁTICO DE GUÍA DE REMISIÓN (PDF) -->
+                        <label class="zona-pdf mb-3" for="pdfFileinput">
+                            <i class="bi bi-file-earmark-pdf-fill zona-pdf-icono"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">Autocompletar con la Guía de Remisión (PDF)</div>
+                                <small class="text-muted">Haz clic aquí o arrastra el PDF de SUNAT: se llenan solos la guía, fecha, chofer, cliente, ruta, carga y peso.</small>
+                            </div>
+                            <span class="btn btn-sm btn-primary fw-bold flex-shrink-0"><i class="bi bi-upload me-1"></i> Subir PDF</span>
+                            <input type="file" class="d-none" id="pdfFileinput" accept="application/pdf">
+                        </label>
+
                         <div class="row g-3">
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold"><i class="bi bi-calendar-event text-primary me-1"></i> Fecha</label>
-                                <input type="date" class="form-control interactive-input" id="fechaServicio" required>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold"><i class="bi bi-car-front text-primary me-1"></i> Tipo de Vehículo</label>
-                                <select class="form-select fw-bold text-primary interactive-input" id="tipoVehiculo" onchange="toggleVehiculoTercero()">
-                                    <option value="Propio (C5T-850)">Flota Propia (C5T-850)</option>
-                                    <option value="Tercero / Externo">Vehículo Tercero / Externo</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 d-none" id="divCostoTercero">
-                                <label class="form-label fw-semibold text-danger"><i class="bi bi-cash-coin me-1"></i> Pago Tercero (S/)</label>
-                                <input type="number" step="0.01" class="form-control border-danger interactive-input" id="costoTercero" placeholder="Ej. 400.00" value="0.00">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold"><i class="bi bi-person-fill text-primary me-1"></i> Conductor / Dueño</label>
-                                <input type="text" class="form-control interactive-input" id="nombreConductor" placeholder="Ej. Flores Carbajal Ayrton Andre" required>
+                            <!-- COLUMNA IZQUIERDA: DATOS -->
+                            <div class="col-lg-8">
+
+                                <!-- DATOS GENERALES -->
+                                <div class="bloque-form mb-3">
+                                    <div class="bloque-titulo"><span class="bloque-icono icono-verde"><i class="bi bi-calendar3"></i></span> Datos generales</div>
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <label class="form-label" for="fechaServicio">Fecha <span class="text-danger">*</span></label>
+                                            <input type="date" class="form-control interactive-input" id="fechaServicio" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label" for="tipoVehiculo">Tipo de vehículo <span class="text-danger">*</span></label>
+                                            <select class="form-select fw-bold text-primary interactive-input" id="tipoVehiculo" onchange="toggleVehiculoTercero()">
+                                                <option value="Propio (C5T-850)">🚛 Flota Propia · C5T-850</option>
+                                                <option value="Tercero / Externo">🚚 Vehículo Tercero / Externo</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label" for="nombreConductor">Conductor <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                                <input type="text" class="form-control interactive-input" id="nombreConductor" list="lista-choferes" placeholder="Ej. Garcia Cornejo Cesar Augusto" required>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Solo para vehículos de terceros -->
+                                    <div class="d-none mt-3" id="divCostoTercero">
+                                        <div class="row g-3 caja-tercero m-0">
+                                            <div class="col-md-7">
+                                                <label class="form-label" for="terceroNombre">Transportista / empresa tercera (a quién se le paga) <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="bi bi-building"></i></span>
+                                                    <input type="text" class="form-control interactive-input" id="terceroNombre" list="lista-terceros" placeholder="Ej. Transportes Huamaní E.I.R.L.">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-5">
+                                                <label class="form-label" for="costoTercero">Monto acordado por el viaje</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text">S/</span>
+                                                    <input type="number" step="0.01" min="0" class="form-control interactive-input" id="costoTercero" placeholder="400.00" value="0.00">
+                                                </div>
+                                            </div>
+                                            <div class="col-12 pt-0">
+                                                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Se suma a la cuenta del transportista. No sale de caja hasta que registres el pago en "Pagos Choferes / Terceros".</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GUÍA Y CARGA -->
+                                <div class="bloque-form mb-3">
+                                    <div class="bloque-titulo"><span class="bloque-icono icono-dorado"><i class="bi bi-box-seam"></i></span> Guía y carga</div>
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label" for="guiaRemitente">N° Guía Remitente <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">#</span>
+                                                <input type="text" class="form-control interactive-input" id="guiaRemitente" placeholder="EG07-00003545" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label" for="detalleProducto">Producto / carga</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-basket"></i></span>
+                                                <input type="text" class="form-control interactive-input" id="detalleProducto" placeholder="Espárrago verde fresco">
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-2">
+                                            <label class="form-label" for="numJabas">N° Jabas</label>
+                                            <input type="number" class="form-control interactive-input" id="numJabas" placeholder="362">
+                                        </div>
+                                        <div class="col-6 col-md-2">
+                                            <label class="form-label" for="pesoBruto">Peso bruto</label>
+                                            <input type="text" class="form-control interactive-input" id="pesoBruto" placeholder="4,845 KGM">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- CLIENTE Y RUTA -->
+                                <div class="bloque-form">
+                                    <div class="bloque-titulo"><span class="bloque-icono icono-terracota"><i class="bi bi-geo-alt"></i></span> Cliente y ruta</div>
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label class="form-label" for="datosDestinatario">Destinatario / cliente <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-building"></i></span>
+                                                <input type="text" class="form-control interactive-input" id="datosDestinatario" list="lista-clientes" placeholder="Ej. Inversiones Agrícolas Eco S.A.C." required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md">
+                                            <label class="form-label" for="puntoPartida">Punto de partida</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-circle-fill text-success" style="font-size: 0.6rem;"></i></span>
+                                                <input type="text" class="form-control interactive-input" id="puntoPartida" placeholder="Carretera Panamericana Sur Km 262">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-auto d-none d-md-flex align-items-end pb-2">
+                                            <i class="bi bi-arrow-right fs-4 text-primary"></i>
+                                        </div>
+                                        <div class="col-md">
+                                            <label class="form-label" for="puntoLlegada">Punto de llegada</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-geo-alt-fill text-danger"></i></span>
+                                                <input type="text" class="form-control interactive-input" id="puntoLlegada" placeholder="Fnd. Fraile - Salas - Ica">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold"><i class="bi bi-file-earmark-text text-primary me-1"></i> N° Guía Remitente</label>
-                                <input type="text" class="form-control interactive-input" id="guiaRemitente" placeholder="Ej. EG07-00000091" required>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold"><i class="bi bi-file-earmark-richtext text-primary me-1"></i> N° Guía Transportista</label>
-                                <input type="text" class="form-control interactive-input" id="guiaTransportista" placeholder="Ej. EG03-00000001" required>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold"><i class="bi bi-box-seam text-primary me-1"></i> N° Jabas</label>
-                                <input type="number" class="form-control interactive-input" id="numJabas" placeholder="Ej. 469">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold"><i class="bi bi-basket text-primary me-1"></i> Producto / Carga</label>
-                                <input type="text" class="form-control interactive-input" id="detalleProducto" placeholder="Ej. Ají amarillo">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold"><i class="bi bi-speedometer text-primary me-1"></i> Peso Bruto</label>
-                                <input type="text" class="form-control interactive-input" id="pesoBruto" placeholder="Ej. 4390 KGM">
-                            </div>
+                            <!-- COLUMNA DERECHA: COBRO Y ESTADOS -->
+                            <div class="col-lg-4">
+                                <div class="resumen-cobro mb-3">
+                                    <div class="bloque-titulo text-white"><span class="bloque-icono icono-oscuro"><i class="bi bi-currency-dollar"></i></span> Resumen de cobro</div>
 
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold"><i class="bi bi-building text-primary me-1"></i> Destinatario / Cliente</label>
-                                <input type="text" class="form-control interactive-input" id="datosDestinatario" placeholder="Ej. Agro industria San Antonio" required>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold"><i class="bi bi-geo-alt text-primary me-1"></i> Punto de Partida</label>
-                                <input type="text" class="form-control interactive-input" id="puntoPartida" placeholder="Ej. Cabeza de Toro - Pisco">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold"><i class="bi bi-geo text-primary me-1"></i> Punto de Llegada / Destino</label>
-                                <input type="text" class="form-control interactive-input" id="puntoLlegada" placeholder="Ej. Urb. Parque Industrial - Ica">
-                            </div>
+                                    <label class="form-label" for="tarifaSinIgv">Tarifa sin IGV <span class="text-warning">*</span></label>
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text">S/</span>
+                                        <input type="number" step="0.01" min="0" class="form-control fw-bold" id="tarifaSinIgv" placeholder="550.00" required oninput="calcularTotalesFlete()">
+                                    </div>
 
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold"><i class="bi bi-signpost text-primary me-1"></i> Km Inicio</label>
-                                <input type="number" class="form-control interactive-input" id="kmInicio" placeholder="Ej. 117085">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold"><i class="bi bi-signpost-2 text-primary me-1"></i> Km Final</label>
-                                <input type="number" class="form-control interactive-input" id="kmFinal" placeholder="Ej. 117283">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold"><i class="bi bi-cash text-primary me-1"></i> Tarifa Sin IGV (S/)</label>
-                                <input type="number" step="0.01" class="form-control interactive-input" id="tarifaSinIgv" placeholder="Ej. 550.00" required onchange="calcularTotalesFlete()">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label fw-semibold"><i class="bi bi-people text-primary me-1"></i> Estiba (S/)</label>
-                                <input type="number" step="0.01" class="form-control interactive-input" id="montoEstiba" value="0.00" onchange="calcularTotalesFlete()">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold text-success"><i class="bi bi-receipt-cutoff me-1"></i> Total a Facturar Inc. IGV (18%)</label>
-                                <input type="number" step="0.01" class="form-control fw-bold text-success fs-5 bg-success bg-opacity-10 interactive-input" id="totalAFacturar" readonly placeholder="S/ 649.00">
-                            </div>
+                                    <label class="form-label" for="montoEstiba">Estiba <small class="opacity-75">(automática según jabas)</small></label>
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text">S/</span>
+                                        <input type="number" step="0.01" min="0" class="form-control" id="montoEstiba" value="0.00" oninput="calcularTotalesFlete()">
+                                    </div>
 
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold"><i class="bi bi-file-earmark-check text-primary me-1"></i> Estado Facturación</label>
-                                <select class="form-select interactive-input" id="estadoFacturacion">
-                                    <option value="NO FACTURADO" selected>NO FACTURADO</option>
-                                    <option value="FACTURADO">FACTURADO</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold"><i class="bi bi-credit-card text-primary me-1"></i> Estado de Pago</label>
-                                <select class="form-select interactive-input" id="estadoPago">
-                                    <option value="PENDIENTE" selected>PENDIENTE</option>
-                                    <option value="PAGADO">PAGADO</option>
-                                </select>
+                                    <div class="resumen-linea"><span>Subtotal</span><span id="resumenSubtotal">S/ 0.00</span></div>
+                                    <div class="resumen-linea"><span>IGV (18%)</span><span id="resumenIgv">S/ 0.00</span></div>
+
+                                    <div class="resumen-total">
+                                        <small>TOTAL A FACTURAR</small>
+                                        <div id="totalAFacturar">S/ 0.00</div>
+                                    </div>
+                                </div>
+
+                                <div class="bloque-form">
+                                    <div class="bloque-titulo"><span class="bloque-icono icono-cielo"><i class="bi bi-check2-square"></i></span> Estados</div>
+
+                                    <label class="form-label">Facturación</label>
+                                    <div class="segmentado mb-3" role="group" aria-label="Estado de facturación">
+                                        <input type="radio" class="btn-check" name="estadoFacturacion" id="factNo" value="NO FACTURADO" checked>
+                                        <label class="btn" for="factNo"><i class="bi bi-dot"></i>No facturado</label>
+                                        <input type="radio" class="btn-check" name="estadoFacturacion" id="factSi" value="FACTURADO">
+                                        <label class="btn" for="factSi">Facturado</label>
+                                    </div>
+
+                                    <label class="form-label">Pago del fundo</label>
+                                    <div class="segmentado" role="group" aria-label="Estado de pago">
+                                        <input type="radio" class="btn-check" name="estadoPago" id="pagoNo" value="PENDIENTE" checked>
+                                        <label class="btn" for="pagoNo"><i class="bi bi-dot"></i>Pendiente</label>
+                                        <input type="radio" class="btn-check" name="estadoPago" id="pagoSi" value="PAGADO">
+                                        <label class="btn" for="pagoSi">Pagado</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="mt-4 text-end">
-                            <button type="button" class="btn btn-secondary me-2 px-4 shadow-sm" data-bs-dismiss="modal"><i class="bi bi-x-lg me-1"></i> Cancelar</button>
-                            <button type="submit" class="btn btn-primary fw-bold px-4 shadow-sm"><i class="bi bi-save me-1"></i> Guardar Servicio</button>
-                        </div>
-                    </form>
-                </div>
+                    <div class="modal-footer pie-viaje">
+                        <small class="text-muted me-auto" id="estado-borrador"><i class="bi bi-cloud-check me-1"></i>Los datos se guardan como borrador mientras escribes</small>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar <kbd class="ms-1">Esc</kbd></button>
+                        <button type="submit" class="btn btn-outline-primary fw-bold" data-accion="otro"><i class="bi bi-plus-circle me-1"></i> Guardar y registrar otro</button>
+                        <button type="submit" class="btn btn-primary fw-bold" data-accion="cerrar"><i class="bi bi-save me-1"></i> Guardar servicio <kbd class="ms-1">Ctrl ↵</kbd></button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -564,26 +988,29 @@
                 </div>
                 <div class="modal-body p-4">
                     <form id="form-nueva-asistencia">
+                        <div class="alert alert-info small py-2">
+                            <i class="bi bi-info-circle me-1"></i> Los días con guía ya se cuentan solos. Usa esto para descansos, taller, faltas o días trabajados sin guía.
+                        </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold"><i class="bi bi-calendar-date text-primary me-1"></i> Fecha</label>
                             <input type="date" class="form-control interactive-input" id="asistenciaFecha" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-semibold"><i class="bi bi-person text-primary me-1"></i> Conductor</label>
-                            <input type="text" class="form-control interactive-input" id="asistenciaConductor" placeholder="Ej. Flores Carbajal Ayrton Andre" required>
+                            <label class="form-label fw-semibold"><i class="bi bi-person text-primary me-1"></i> Conductor (de la empresa)</label>
+                            <input type="text" class="form-control interactive-input" id="asistenciaConductor" list="lista-choferes" placeholder="Ej. Garcia Cornejo Cesar Augusto" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold"><i class="bi bi-check-circle text-primary me-1"></i> Estado de Asistencia</label>
                             <select class="form-select interactive-input" id="asistenciaEstado">
-                                <option value="Laborado / Ruta" selected>Laborado / En Ruta</option>
-                                <option value="Descanso">Descanso / Franco</option>
+                                <option value="Laborado / Ruta">Laborado / En Ruta (sin guía)</option>
+                                <option value="Descanso" selected>Descanso / Franco</option>
                                 <option value="En Taller">En Taller / Mantenimiento</option>
                                 <option value="Falta">Falta / Inasistencia</option>
                             </select>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold"><i class="bi bi-journal-text text-primary me-1"></i> Observación / Ruta Asignada</label>
-                            <input type="text" class="form-control interactive-input" id="asistenciaObs" placeholder="Ej. Ruta C5T-850 Pisco - Ica">
+                            <input type="text" class="form-control interactive-input" id="asistenciaObs" placeholder="Ej. Cambio de llantas">
                         </div>
                         <div class="text-end">
                             <button type="button" class="btn btn-secondary me-2 shadow-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -595,27 +1022,184 @@
         </div>
     </div>
 
-    <!-- Modal Registrar Viático -->
+    <!-- Modal Registrar Pago / Adelanto (choferes y terceros) -->
     <div class="modal fade" id="nuevoPagoModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content shadow-lg">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Registrar Adelanto / Viático a Conductor</h5>
+                    <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Registrar Pago / Adelanto</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <form id="form-nuevo-viatico">
+                    <form id="form-nuevo-pago">
                         <div class="mb-3">
-                            <label class="form-label fw-semibold"><i class="bi bi-person text-success me-1"></i> Nombre del Conductor</label>
-                            <input type="text" class="form-control interactive-input" id="viaticoConductor" placeholder="Ej. Flores Carbajal Ayrton Andre" required>
+                            <label class="form-label fw-semibold"><i class="bi bi-person text-success me-1"></i> ¿A quién se le paga?</label>
+                            <select class="form-select interactive-input" id="pagoA" required onchange="mostrarSaldoPago()"></select>
+                            <div class="form-text fw-semibold" id="pago-saldo-info"></div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold"><i class="bi bi-calendar text-success me-1"></i> Fecha</label>
+                                <input type="date" class="form-control interactive-input" id="pagoFecha" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold"><i class="bi bi-tag text-success me-1"></i> Tipo</label>
+                                <select class="form-select interactive-input" id="pagoTipo">
+                                    <option value="ADELANTO">Adelanto / Viático</option>
+                                    <option value="PAGO">Pago / Liquidación</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-semibold"><i class="bi bi-currency-dollar text-success me-1"></i> Monto del Adelanto / Viático (S/)</label>
-                            <input type="number" step="0.01" class="form-control interactive-input" id="viaticoMonto" placeholder="Ej. 200.00" required>
+                            <label class="form-label fw-semibold"><i class="bi bi-currency-dollar text-success me-1"></i> Monto (S/)</label>
+                            <input type="number" step="0.01" min="0.01" class="form-control interactive-input" id="pagoMonto" placeholder="Ej. 200.00" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-journal-text text-success me-1"></i> Nota (opcional)</label>
+                            <input type="text" class="form-control interactive-input" id="pagoNota" placeholder="Ej. Pago 2 días, semana 1-7 oct, Yape...">
                         </div>
                         <div class="text-end">
                             <button type="button" class="btn btn-secondary me-2 shadow-sm" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-success fw-bold shadow-sm">Guardar Viático</button>
+                            <button type="submit" class="btn btn-success fw-bold shadow-sm">Guardar Pago</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Configurar Chofer -->
+    <div class="modal fade" id="configChoferModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-gear me-2"></i>Configurar Chofer</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-config-chofer">
+                        <input type="hidden" id="choferId">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="choferNombre">Conductor (nombre completo, como sale en la guía)</label>
+                            <input type="text" class="form-control interactive-input" id="choferNombre" placeholder="Ej. GARCIA CORNEJO CESAR AUGUSTO" required readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Modalidad de pago</label>
+                            <select class="form-select interactive-input" id="choferModalidad" onchange="toggleCamposChofer()">
+                                <option value="QUINCENAL">Estable — pago quincenal</option>
+                                <option value="MENSUAL">Estable — pago mensual</option>
+                                <option value="DIARIO">Apoyo — pago diario</option>
+                            </select>
+                        </div>
+                        <div class="row g-3 mb-3" id="grupoSueldoChofer">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Sueldo mensual (S/)</label>
+                                <input type="number" step="0.01" min="0" class="form-control interactive-input" id="choferSueldo">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Viáticos mensuales (S/)</label>
+                                <input type="number" step="0.01" min="0" class="form-control interactive-input" id="choferViaticos">
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted">Mes completo con 26+ días (o quincena con 13+ días) = monto completo. Si trabaja menos, se paga proporcional por día (÷30).</small>
+                            </div>
+                        </div>
+                        <div class="mb-3 d-none" id="grupoDiarioChofer">
+                            <label class="form-label fw-semibold">Pago por día trabajado (S/)</label>
+                            <input type="number" step="0.01" min="0" class="form-control interactive-input" id="choferDiario">
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="choferActivo">
+                            <label class="form-check-label" for="choferActivo">Activo (si lo desmarcas, deja de aparecer en la lista de pagos)</label>
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary me-2 shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary fw-bold shadow-sm">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cambiar Contraseña -->
+    <div class="modal fade" id="cambiarPasswordModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-shield-lock me-2"></i>Cambiar Contraseña</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-cambiar-password">
+                        <div class="mb-3" id="passActualGrupo">
+                            <label class="form-label fw-semibold">Contraseña actual</label>
+                            <input type="password" class="form-control interactive-input" id="passActual" autocomplete="current-password">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Nueva contraseña</label>
+                            <input type="password" class="form-control interactive-input" id="passNueva" minlength="6" autocomplete="new-password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Repetir nueva contraseña</label>
+                            <input type="password" class="form-control interactive-input" id="passConfirmar" minlength="6" autocomplete="new-password" required>
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary me-2 shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-dark fw-bold shadow-sm">Guardar Contraseña</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Bitácora Diaria -->
+    <div class="modal fade" id="bitacoraModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-speedometer me-2"></i><span id="bitacoraTitulo">Registrar Día</span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-bitacora">
+                        <input type="hidden" id="bitacoraId">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold" for="bitacoraFecha">Fecha</label>
+                                <input type="date" class="form-control interactive-input" id="bitacoraFecha" required onchange="alCambiarFechaBitacora()">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold" for="bitacoraUnidad">Unidad</label>
+                                <input type="text" class="form-control" id="bitacoraUnidad" value="C5T-850" readonly>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" for="bitacoraConductor">Chofer</label>
+                                <input type="text" class="form-control interactive-input" id="bitacoraConductor" list="lista-choferes" placeholder="Se completa solo si ese día hay guías">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold" for="bitacoraSalida"><i class="bi bi-box-arrow-right text-success me-1"></i> Km al salir</label>
+                                <input type="number" min="0" step="1" class="form-control form-control-lg fw-bold interactive-input" id="bitacoraSalida" required oninput="calcularRecorridoBitacora()">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold" for="bitacoraLlegada"><i class="bi bi-house-door text-danger me-1"></i> Km al regresar</label>
+                                <input type="number" min="0" step="1" class="form-control form-control-lg fw-bold interactive-input" id="bitacoraLlegada" placeholder="Al final del día" oninput="calcularRecorridoBitacora()">
+                            </div>
+                            <div class="col-12">
+                                <div class="recorrido-caja" id="bitacoraRecorrido">
+                                    <i class="bi bi-signpost-split"></i> <span>Escribe los km para calcular el recorrido</span>
+                                </div>
+                                <small class="d-block mt-1" id="bitacoraAviso"></small>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" for="bitacoraObs">Observación</label>
+                                <input type="text" class="form-control interactive-input" id="bitacoraObs" placeholder="Ej. Pasó por grifo, regresó vacío desde Pisco...">
+                            </div>
+                        </div>
+                        <div class="text-end mt-4">
+                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-save me-1"></i> Guardar</button>
                         </div>
                     </form>
                 </div>

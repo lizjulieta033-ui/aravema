@@ -1,105 +1,775 @@
+/* =====================================================================
+   ARAVEMA GROUP · Tema "Agro"
+   Verde campo · dorado cosecha · terracota · tierra · cielo de riego
+   ===================================================================== */
+
+:root {
+    /* Paleta del agro */
+    --agro-verde: #2e7d32;
+    --agro-verde-oscuro: #1f5a24;
+    --agro-verde-hoja: #4f9a2f;
+    --agro-verde-claro: #eaf3e3;
+    --agro-dorado: #e3a21a;
+    --agro-dorado-claro: #fdf3dc;
+    --agro-terracota: #c0603a;
+    --agro-tierra: #7b6b57;
+    --agro-cielo: #2f8fae;
+    --agro-crema: #f5f2e9;
+    --agro-tinta: #23301f;
+    --agro-tinta-suave: #5f6b57;
+    --agro-borde: #e4e0d2;
+    --agro-sidebar: #12301a;
+    --agro-sidebar-2: #1c4426;
+
+    /* Bootstrap usa estas variables: así todo el sistema toma los colores del agro */
+    --bs-primary: #2e7d32;
+    --bs-primary-rgb: 46, 125, 50;
+    --bs-success: #4f9a2f;
+    --bs-success-rgb: 79, 154, 47;
+    --bs-warning: #e3a21a;
+    --bs-warning-rgb: 227, 162, 26;
+    --bs-danger: #c0442b;
+    --bs-danger-rgb: 192, 68, 43;
+    --bs-info: #2f8fae;
+    --bs-info-rgb: 47, 143, 174;
+    --bs-secondary: #7b6b57;
+    --bs-secondary-rgb: 123, 107, 87;
+    --bs-light: #f5f2e9;
+    --bs-light-rgb: 245, 242, 233;
+    --bs-warning-text-emphasis: #7a5200;
+    --bs-body-bg: #ffffff;
+    --bs-body-color: #23301f;
+    --bs-body-font-family: 'Nunito', 'Segoe UI', Tahoma, sans-serif;
+    --bs-link-color: #2e7d32;
+    --bs-link-color-rgb: 46, 125, 50;
+    --bs-link-hover-color: #1f5a24;
+    --bs-border-color: #e4e0d2;
+    --bs-border-radius: 0.6rem;
+}
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8f9fa;
+    font-family: 'Nunito', 'Segoe UI', Tahoma, sans-serif;
+    background-color: var(--agro-crema);
+    color: var(--agro-tinta);
     overflow-x: hidden;
 }
 
-#sidebar-wrapper {
+h1, h2, h3, h4, h5, h6, .font-titulo {
+    font-family: 'Poppins', 'Segoe UI', sans-serif;
+    letter-spacing: -0.01em;
+}
+
+.min-w-0 { min-width: 0; }
+
+#page-content-wrapper.bg-light,
+#page-content-wrapper {
+    background-color: var(--agro-crema) !important;
     min-height: 100vh;
+    flex: 1 1 auto;
+    min-width: 0;          /* evita que el contenido empuje la página hacia la derecha */
+    width: auto !important;
+}
+
+/* ---------------------------------------------------------------------
+   BOTONES
+   --------------------------------------------------------------------- */
+.btn {
+    border-radius: 0.6rem;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.btn:not(:disabled):hover { transform: translateY(-1px); }
+.btn:not(:disabled):active { transform: translateY(0); }
+
+.btn-primary {
+    --bs-btn-bg: var(--agro-verde);
+    --bs-btn-border-color: var(--agro-verde);
+    --bs-btn-hover-bg: var(--agro-verde-oscuro);
+    --bs-btn-hover-border-color: var(--agro-verde-oscuro);
+    --bs-btn-active-bg: #184a1c;
+    --bs-btn-active-border-color: #184a1c;
+    --bs-btn-disabled-bg: var(--agro-verde);
+    --bs-btn-disabled-border-color: var(--agro-verde);
+    --bs-btn-focus-shadow-rgb: 46, 125, 50;
+}
+.btn-primary:hover { box-shadow: 0 6px 16px rgba(46, 125, 50, 0.3); }
+
+.btn-success {
+    --bs-btn-bg: var(--agro-verde-hoja);
+    --bs-btn-border-color: var(--agro-verde-hoja);
+    --bs-btn-hover-bg: #3f7f24;
+    --bs-btn-hover-border-color: #3f7f24;
+    --bs-btn-active-bg: #356b1e;
+    --bs-btn-active-border-color: #356b1e;
+    --bs-btn-focus-shadow-rgb: 79, 154, 47;
+}
+.btn-success:hover { box-shadow: 0 6px 16px rgba(79, 154, 47, 0.3); }
+
+.btn-warning {
+    --bs-btn-bg: var(--agro-dorado);
+    --bs-btn-border-color: var(--agro-dorado);
+    --bs-btn-hover-bg: #c98b0c;
+    --bs-btn-hover-border-color: #c98b0c;
+    --bs-btn-active-bg: #b07a08;
+    --bs-btn-color: #2b2100;
+    --bs-btn-hover-color: #2b2100;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--agro-verde);
+    --bs-btn-border-color: var(--agro-verde);
+    --bs-btn-hover-bg: var(--agro-verde);
+    --bs-btn-hover-border-color: var(--agro-verde);
+    --bs-btn-active-bg: var(--agro-verde-oscuro);
+    --bs-btn-active-border-color: var(--agro-verde-oscuro);
+}
+
+.btn-outline-danger {
+    --bs-btn-color: #c0442b;
+    --bs-btn-border-color: #e3b3a8;
+    --bs-btn-hover-bg: #c0442b;
+    --bs-btn-hover-border-color: #c0442b;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--agro-tierra);
+    --bs-btn-border-color: #d6cfbf;
+    --bs-btn-hover-bg: var(--agro-tierra);
+    --bs-btn-hover-border-color: var(--agro-tierra);
+}
+
+.btn-dark {
+    --bs-btn-bg: var(--agro-sidebar);
+    --bs-btn-border-color: var(--agro-sidebar);
+    --bs-btn-hover-bg: var(--agro-sidebar-2);
+    --bs-btn-hover-border-color: var(--agro-sidebar-2);
+}
+
+/* Brillo que recorre el botón principal */
+.btn-brillo { position: relative; overflow: hidden; }
+.btn-brillo::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -75%;
+    width: 50%; height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: skewX(-20deg);
+    animation: brillo 4.5s ease-in-out infinite;
+}
+@keyframes brillo {
+    0%, 70% { left: -75%; }
+    100% { left: 130%; }
+}
+
+/* ---------------------------------------------------------------------
+   LOGIN
+   --------------------------------------------------------------------- */
+.login-agro {
+    background:
+        repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.035) 0 22px, transparent 22px 44px),
+        radial-gradient(circle at 15% 20%, rgba(227, 162, 26, 0.25), transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(79, 154, 47, 0.35), transparent 50%),
+        linear-gradient(160deg, #0f2a16 0%, #1c4426 55%, #2e6a2f 100%);
+}
+
+.card.style-login-card {
+    background: rgba(255, 255, 255, 0.97);
+    border: none !important;
+    border-top: 5px solid var(--agro-dorado) !important;
+    animation: aparecerArriba 0.5s ease-out both;
+    backdrop-filter: blur(6px);
+}
+
+.logo-agro {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #fff;
+    background: linear-gradient(145deg, var(--agro-verde-hoja), var(--agro-verde-oscuro));
+    box-shadow: 0 10px 24px rgba(31, 90, 36, 0.35);
+}
+.logo-agro .logo-hoja {
+    position: absolute;
+    right: -8px;
+    bottom: -8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--agro-dorado);
+    color: #fff;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #fff;
+    animation: balanceo 3s ease-in-out infinite;
+}
+.logo-agro-sm {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    box-shadow: none;
+}
+@keyframes balanceo {
+    0%, 100% { transform: rotate(-8deg); }
+    50% { transform: rotate(8deg); }
+}
+
+/* ---------------------------------------------------------------------
+   MENÚ LATERAL
+   --------------------------------------------------------------------- */
+#sidebar-wrapper {
     width: 260px;
-    background-color: #0d1b2a !important;
-    transition: all 0.3s ease;
+    min-width: 260px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    background:
+        repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.025) 0 18px, transparent 18px 36px),
+        linear-gradient(180deg, var(--agro-sidebar) 0%, var(--agro-sidebar-2) 100%);
+    transition: left 0.3s ease;
+    scrollbar-width: thin;
 }
 
 .sidebar-heading {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.sidebar-subtitulo {
+    color: #9fb89a;
+    font-size: 0.75rem;
+}
+
+.tarjeta-usuario {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sidebar .list-group-item {
     background-color: transparent;
-    color: #a3b1c6;
+    color: #b9cbb3;
     border: none;
-    padding: 12px 20px;
+    border-left: 4px solid transparent;
+    margin: 2px 10px;
+    border-radius: 0.6rem;
+    padding: 11px 14px;
     font-size: 0.95rem;
-    font-weight: 500;
+    font-weight: 600;
     transition: all 0.2s ease-in-out;
 }
+.sidebar .list-group-item i { transition: transform 0.2s ease, color 0.2s ease; }
 
 .sidebar .list-group-item:hover {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.07);
     color: #ffffff;
     transform: translateX(4px);
 }
+.sidebar .list-group-item:hover i { transform: scale(1.15); color: var(--agro-dorado); }
 
 .sidebar .list-group-item.active {
-    background-color: #1b263b;
+    background: linear-gradient(90deg, rgba(227, 162, 26, 0.22), rgba(227, 162, 26, 0.05));
     color: #ffffff;
-    font-weight: 600;
-    border-left: 4px solid #0d6efd;
+    border-left-color: var(--agro-dorado);
+}
+.sidebar .list-group-item.active i { color: var(--agro-dorado); }
+
+/* Menú en celular / tablet */
+.btn-menu { border-radius: 0.6rem; padding: 2px 10px; }
+#sidebar-overlay { display: none; }
+
+@media (max-width: 991.98px) {
+    #sidebar-wrapper {
+        position: fixed;
+        left: -280px;
+        z-index: 1045;
+        box-shadow: 8px 0 30px rgba(0, 0, 0, 0.25);
+    }
+    body.menu-abierto #sidebar-wrapper { left: 0; }
+    body.menu-abierto #sidebar-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 30, 18, 0.45);
+        z-index: 1040;
+        animation: aparecer 0.2s ease both;
+    }
+    .container-fluid.p-4 { padding: 1rem !important; }
+}
+
+/* ---------------------------------------------------------------------
+   BARRA SUPERIOR
+   --------------------------------------------------------------------- */
+.barra-superior {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--agro-borde);
+}
+
+/* ---------------------------------------------------------------------
+   TARJETAS Y KPIs
+   --------------------------------------------------------------------- */
+.card {
+    --bs-card-bg: #ffffff;
+    border-radius: 1rem;
+    border: 1px solid var(--agro-borde) !important;
+    box-shadow: 0 2px 10px rgba(35, 48, 31, 0.05) !important;
 }
 
 .card-kpi {
-    border-radius: 10px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    --acento: var(--agro-verde);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
-
+.card-kpi::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 5px;
+    background: var(--acento);
+}
+.card-kpi::after {
+    /* hoja decorativa de fondo */
+    content: '';
+    position: absolute;
+    right: -30px;
+    bottom: -30px;
+    width: 110px;
+    height: 110px;
+    border-radius: 0 60% 0 60%;
+    background: var(--acento);
+    opacity: 0.06;
+    transition: transform 0.4s ease, opacity 0.3s ease;
+}
 .card-kpi:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    transform: translateY(-5px);
+    box-shadow: 0 14px 28px rgba(35, 48, 31, 0.12) !important;
 }
+.card-kpi:hover::after { transform: rotate(25deg) scale(1.15); opacity: 0.1; }
+.card-kpi h3 { font-family: 'Poppins', sans-serif; font-variant-numeric: tabular-nums; }
+
+#kpi-container > div:nth-child(1) .card-kpi { --acento: var(--agro-verde); }
+#kpi-container > div:nth-child(2) .card-kpi { --acento: var(--agro-dorado); }
+#kpi-container > div:nth-child(3) .card-kpi { --acento: var(--agro-verde-hoja); }
+#kpi-container > div:nth-child(4) .card-kpi { --acento: var(--agro-terracota); }
 
 .icon-shape {
-    width: 50px;
-    height: 50px;
+    width: 52px;
+    height: 52px;
+    border-radius: 16px !important;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+.card-kpi:hover .icon-shape { transform: rotate(-8deg) scale(1.08); }
+
+/* Gráficos */
+.grafico-caja { position: relative; height: 240px; }
+.estado-vacio {
+    height: 240px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--agro-tinta-suave);
+}
+.estado-vacio i { font-size: 2.2rem; color: var(--agro-verde-hoja); opacity: 0.6; }
+
+/* ---------------------------------------------------------------------
+   TABLAS
+   --------------------------------------------------------------------- */
+.table { --bs-table-hover-bg: #f1f6ea; margin-bottom: 0; }
+.table > :not(caption) > * > * { border-bottom-color: #efebe0; }
+
+.table thead.table-light th,
+.table-light {
+    --bs-table-bg: #f3f1e7;
+    --bs-table-color: var(--agro-tinta-suave);
+}
+.table thead th {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 800;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--agro-borde) !important;
+}
+.table tbody tr { transition: background-color 0.15s ease; }
+.table-responsive {
+    border-radius: 0.8rem;
+    border: 1px solid var(--agro-borde);
 }
 
-.content-section {
-    animation: fadeIn 0.3s ease-in-out;
-}
+.style-table { font-size: 0.88rem; }
+.style-table td:first-child { white-space: nowrap; }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.style-table {
-    font-size: 0.88rem;
-}
+.badge { font-weight: 700; letter-spacing: 0.01em; }
 
 .badge-select {
-    font-size: 0.82rem;
-    font-weight: 600;
-    border-radius: 6px;
-    padding: 4px 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 4px 28px 4px 12px;
     cursor: pointer;
+    border: none;
     transition: all 0.2s;
+    background-position: right 8px center;
+    min-width: 152px;
+}
+.badge-select:not(:disabled):hover { filter: brightness(1.06); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12); }
+.badge-select:disabled { opacity: 0.9; cursor: default; }
+
+/* ---------------------------------------------------------------------
+   FILTROS (chips) Y BUSCADOR
+   --------------------------------------------------------------------- */
+.barra-filtros .input-group-text {
+    background: #fff;
+    color: var(--agro-tinta-suave);
+    border-right: none;
+}
+.barra-filtros .form-control { border-left: none; }
+
+.chip-filtro {
+    border-radius: 999px;
+    border: 1px solid var(--agro-borde);
+    background: #fff;
+    color: var(--agro-tinta-suave);
+    font-weight: 700;
+    padding: 4px 14px;
+}
+.chip-filtro:hover { border-color: var(--agro-verde); color: var(--agro-verde); }
+.chip-filtro.activo {
+    background: var(--agro-verde);
+    border-color: var(--agro-verde);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.25);
 }
 
-/* Tarjeta de Login */
-.style-login-card {
-    background: #ffffff;
-    border-top: 4px solid #0d6efd !important;
-    animation: fadeIn 0.4s ease-in-out;
-}
+/* ---------------------------------------------------------------------
+   FORMULARIOS Y MODALES
+   --------------------------------------------------------------------- */
+.form-control, .form-select { border-radius: 0.6rem; border-color: #dcd7c6; }
 
-/* Efectos interactivos para inputs */
-.interactive-input {
-    transition: all 0.25s ease-in-out;
-    border: 1px solid #ced4da;
-}
-
-.interactive-input:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+.interactive-input { transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.form-control:focus, .form-select:focus, .interactive-input:focus {
+    border-color: var(--agro-verde-hoja);
+    box-shadow: 0 0 0 0.25rem rgba(79, 154, 47, 0.18);
     background-color: #fff;
+}
+.form-check-input:checked { background-color: var(--agro-verde); border-color: var(--agro-verde); }
+
+.modal-content { border: none; border-radius: 1.1rem; overflow: hidden; }
+.modal-header { border-bottom: none; }
+.modal-header.bg-primary { background: linear-gradient(120deg, var(--agro-verde-oscuro), var(--agro-verde-hoja)) !important; }
+.modal-header.bg-success { background: linear-gradient(120deg, #3f7f24, #6db33f) !important; }
+.modal-header.bg-warning { background: linear-gradient(120deg, #d18f0b, #f0bf4c) !important; }
+.modal-header.bg-dark { background: linear-gradient(120deg, var(--agro-sidebar), var(--agro-sidebar-2)) !important; }
+.modal.fade .modal-dialog { transform: translateY(20px) scale(0.98); transition: transform 0.25s ease-out; }
+.modal.show .modal-dialog { transform: none; }
+
+/* ---------------------------------------------------------------------
+   FORMULARIO DE VIAJE
+   --------------------------------------------------------------------- */
+.modal-viaje form { min-height: 0; flex: 1 1 auto; }
+.modal-viaje .modal-body { overflow-y: auto; background: #faf8f2; }
+.modal-viaje .form-label { font-size: 0.82rem; font-weight: 700; color: var(--agro-tinta-suave); margin-bottom: 0.3rem; }
+.modal-viaje .input-group-text { background: #f6f4ec; color: var(--agro-tinta-suave); border-color: #dcd7c6; }
+
+.modal-icono {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+
+/* Zona de subida del PDF */
+.zona-pdf {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 0.9rem;
+    border: 2px dashed #b9d4a8;
+    background: var(--agro-verde-claro);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+.zona-pdf:hover { border-color: var(--agro-verde-hoja); }
+.zona-pdf.arrastrando {
+    border-color: var(--agro-dorado);
+    background: var(--agro-dorado-claro);
     transform: scale(1.01);
 }
+.zona-pdf-icono { font-size: 2rem; color: var(--agro-terracota); flex-shrink: 0; }
+#pdf-status { margin: -6px 0 12px 4px; }
 
+/* Bloques del formulario */
+.bloque-form {
+    background: #fff;
+    border: 1px solid var(--agro-borde);
+    border-radius: 0.9rem;
+    padding: 16px 18px 18px;
+}
+.bloque-titulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 14px;
+}
+.bloque-icono {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+}
+.icono-verde { background: var(--agro-verde-claro); color: var(--agro-verde); }
+.icono-dorado { background: var(--agro-dorado-claro); color: #a8740a; }
+.icono-terracota { background: #fbe9e2; color: var(--agro-terracota); }
+.icono-cielo { background: #e3f1f6; color: var(--agro-cielo); }
+.icono-oscuro { background: rgba(255, 255, 255, 0.12); color: var(--agro-dorado); }
+
+.caja-tercero {
+    background: var(--agro-dorado-claro);
+    border: 1px solid #f0d9a0;
+    border-radius: 0.8rem;
+    padding: 4px 6px 12px;
+    animation: aparecerArriba 0.25s ease-out both;
+}
+
+/* Resumen de cobro */
+.resumen-cobro {
+    border-radius: 0.9rem;
+    padding: 16px 18px 18px;
+    color: #e8f0e4;
+    background:
+        repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.03) 0 16px, transparent 16px 32px),
+        linear-gradient(160deg, var(--agro-sidebar) 0%, #24502d 100%);
+    box-shadow: 0 10px 24px rgba(18, 48, 26, 0.25);
+}
+.resumen-cobro .form-label { color: #b9cbb3 !important; }
+.resumen-cobro .input-group-text {
+    background: rgba(255, 255, 255, 0.08);
+    color: #d6e4d0;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+.resumen-cobro .form-control {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+.resumen-cobro .form-control::placeholder { color: rgba(255, 255, 255, 0.35); }
+.resumen-cobro .form-control:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--agro-dorado);
+    box-shadow: 0 0 0 0.2rem rgba(227, 162, 26, 0.25);
+    color: #fff;
+}
+.resumen-linea {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 2px;
+    font-weight: 700;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+    font-variant-numeric: tabular-nums;
+}
+.resumen-total {
+    margin-top: 14px;
+    padding: 12px 16px;
+    border-radius: 0.8rem;
+    background: rgba(227, 162, 26, 0.12);
+    border: 1px solid rgba(227, 162, 26, 0.45);
+}
+.resumen-total small { color: var(--agro-dorado); font-weight: 800; letter-spacing: 0.06em; }
+#totalAFacturar {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+#totalAFacturar.pulso { animation: pulso 0.4s ease-out; }
+@keyframes pulso {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.06); color: var(--agro-dorado); }
+    100% { transform: scale(1); }
+}
+
+/* Botones segmentados (estados) */
+.segmentado {
+    display: flex;
+    background: #f1eee4;
+    border-radius: 0.7rem;
+    padding: 4px;
+    gap: 4px;
+}
+.segmentado .btn {
+    flex: 1;
+    border: none;
+    border-radius: 0.55rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--agro-tinta-suave);
+    padding: 7px 6px;
+}
+.segmentado .btn:hover { color: var(--agro-tinta); transform: none; }
+.segmentado .btn i { display: none; }
+.segmentado .btn-check:checked + .btn {
+    background: #fff;
+    color: var(--agro-verde);
+    box-shadow: 0 2px 8px rgba(35, 48, 31, 0.12);
+}
+.segmentado .btn-check:checked + .btn i { display: inline; }
+#factNo:checked + .btn, #pagoNo:checked + .btn { color: #b06d00; }
+
+/* Pie del formulario */
+.pie-viaje { background: #fff; border-top: 1px solid var(--agro-borde); gap: 8px; }
+.pie-viaje kbd {
+    background: rgba(0, 0, 0, 0.08);
+    color: inherit;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 5px;
+    box-shadow: none;
+}
+.btn-primary kbd { background: rgba(255, 255, 255, 0.2); }
+@media (max-width: 767.98px) {
+    .pie-viaje kbd { display: none; }
+    .pie-viaje .btn { flex: 1 1 auto; }
+}
+
+/* ---------------------------------------------------------------------
+   BITÁCORA DE KILOMETRAJE
+   --------------------------------------------------------------------- */
+.mini-kpi {
+    background: var(--agro-verde-claro);
+    border-radius: 0.8rem;
+    padding: 12px 16px;
+    height: 100%;
+}
+.mini-kpi small { color: var(--agro-tinta-suave); font-weight: 700; }
+.mini-kpi div {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--agro-verde-oscuro);
+    font-variant-numeric: tabular-nums;
+}
+
+.fila-pendiente > td { background: #fff8e6 !important; }
+
+.recorrido-caja {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 0.8rem;
+    background: #f3f1e7;
+    color: var(--agro-tinta-suave);
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+}
+.recorrido-caja i { font-size: 1.3rem; }
+.recorrido-caja.recorrido-ok { background: var(--agro-verde-claro); color: var(--agro-verde-oscuro); }
+.recorrido-caja.recorrido-error { background: #fbe9e2; color: #a5361f; }
+
+/* ---------------------------------------------------------------------
+   AVISOS FLOTANTES Y BARRA DE CARGA
+   --------------------------------------------------------------------- */
+#alert-container {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 2000;
+    width: min(400px, calc(100vw - 40px));
+}
+#alert-container .alert {
+    border: none;
+    border-left: 5px solid currentColor;
+    border-radius: 0.8rem;
+    box-shadow: 0 12px 30px rgba(35, 48, 31, 0.2) !important;
+    animation: entrarDerecha 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+    font-weight: 600;
+}
+
+#barra-carga {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0;
+    z-index: 3000;
+    background: linear-gradient(90deg, var(--agro-dorado), var(--agro-verde-hoja));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+body.cargando #barra-carga {
+    opacity: 1;
+    animation: cargando 1.2s ease-in-out infinite;
+}
+@keyframes cargando {
+    0% { width: 0; left: 0; }
+    50% { width: 60%; left: 20%; }
+    100% { width: 0; left: 100%; }
+}
+
+/* ---------------------------------------------------------------------
+   ANIMACIONES
+   --------------------------------------------------------------------- */
+.content-section { animation: aparecerArriba 0.35s ease-out both; }
+
+@keyframes aparecer {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes aparecerArriba {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes entrarDerecha {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------------------------------------------------------------------
+   IMPRESIÓN
+   --------------------------------------------------------------------- */
 @media print {
-    #sidebar-wrapper, .navbar, .btn, .modal, .dropdown, form, #login-container {
+    #sidebar-wrapper, .navbar, .btn, .modal, .dropdown, form, #login-container,
+    #alert-container, #barra-carga, .barra-filtros, #sidebar-overlay {
+        display: none !important;
+    }
+    /* La columna de botones no sirve en papel */
+    .th-acciones, .td-acciones {
         display: none !important;
     }
     #page-content-wrapper {
@@ -112,3 +782,14 @@ body {
         box-shadow: none !important;
     }
 }
+
+/* Textos largos de revisión en la bitácora: que salten de línea */
+#tabla-bitacora-body .badge {
+    white-space: normal;
+    text-align: left;
+    max-width: 200px;
+    line-height: 1.35;
+}
+
+/* Choferes desactivados: visibles pero apagados */
+.chofer-inactivo > td { color: #9a9a8c !important; background: #f7f6f1 !important; }
