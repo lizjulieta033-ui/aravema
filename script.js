@@ -1,3 +1,8 @@
+// CONEXIÓN CON SUPABASE
+const SUPABASE_URL = "https://teqqxsgxzswxlsewbmik.supabase.co";
+const SUPABASE_KEY = "sb_publishable_rPrvPQAi7-jvaygPWcPdaw_PiDocX-V";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // CONFIGURACIÓN DE ROLES Y CREDENCIALES
 const USUARIOS = [
     { usuario: "liz", password: "admin123", nombre: "Liz Misarayme (Gerencia)", rol: "ADMIN" },
@@ -25,40 +30,7 @@ const CATEGORIAS_INGRESOS = [
     "Otros Ingresos"
 ];
 
-// Datos iniciales
-const guiasIniciales = [
-    {
-        fecha: "2026-10-13",
-        tipoVehiculo: "Propio (C5T-850)",
-        costoTercero: 0.00,
-        guiaRemitente: "EG07-00000091",
-        guiaTransportista: "EG03-00000001",
-        conductor: "Flores Carbajal Ayrton Andre",
-        jabas: 0,
-        detalle: "ají",
-        pesoBruto: "4390 KGM",
-        puntoPartida: "Cabeza de toro-Independencia-Pisco-Ica",
-        puntoLlegada: "Mz. C lote. 16 Urb. Parque Industrial - Ica",
-        destinatario: "Agro industria San Antonio SR LTDA",
-        tarifaSinIgv: 550.00,
-        estiba: 0.00,
-        subtotal: 550.00,
-        totalAFacturar: 649.00,
-        estadoFacturacion: "NO FACTURADO",
-        estadoPago: "PENDIENTE"
-    }
-];
-
-const gastosIniciales = [];
-const viaticosIniciales = [];
-const mantenimientoInicial = [
-    { placa: "C5T-850 (Volvo Aravema)", desc: "Mantenimiento General Preventivo", taller: "Taller Ica", estado: "Operativo" }
-];
-const asistenciaInicial = [
-    { fecha: "2026-10-13", conductor: "Flores Carbajal Ayrton Andre", estado: "Laborado / Ruta", obs: "Unidad C5T-850 - Ruta Pisco - Ica" }
-];
-
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
     // Verificación de sesión activa
     const userSession = JSON.parse(sessionStorage.getItem('aravema_user_session'));
     if (userSession) {
@@ -67,38 +39,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ocultarSistema();
     }
 
-    if (!localStorage.getItem('aravema_guias')) localStorage.setItem('aravema_guias', JSON.stringify(guiasIniciales));
-    if (!localStorage.getItem('aravema_gastos')) localStorage.setItem('aravema_gastos', JSON.stringify(gastosIniciales));
-    if (!localStorage.getItem('aravema_viaticos')) localStorage.setItem('aravema_viaticos', JSON.stringify(viaticosIniciales));
-    if (!localStorage.getItem('aravema_mantenimiento')) localStorage.setItem('aravema_mantenimiento', JSON.stringify(mantenimientoInicial));
-    if (!localStorage.getItem('aravema_asistencia')) localStorage.setItem('aravema_asistencia', JSON.stringify(asistenciaInicial));
-    if (!localStorage.getItem('aravema_pagos_choferes')) localStorage.setItem('aravema_pagos_choferes', JSON.stringify({}));
-
-    // Listener de Login
-    const formLogin = document.getElementById('form-login');
-    if (formLogin) {
-        formLogin.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const userVal = document.getElementById('loginUsuario').value.trim();
-            const passVal = document.getElementById('loginPassword').value.trim();
-            const alertLogin = document.getElementById('login-error-alert');
-
-            const usuarioEncontrado = USUARIOS.find(u => u.usuario.toLowerCase() === userVal.toLowerCase() && u.password === passVal);
-
-            if (usuarioEncontrado) {
-                sessionStorage.setItem('aravema_user_session', JSON.stringify(usuarioEncontrado));
-                alertLogin.innerHTML = '';
-                mostrarSistema(usuarioEncontrado);
-            } else {
-                alertLogin.innerHTML = `
-                    <div class="alert alert-danger alert-dismissible fade show text-center" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill me-1"></i> Usuario o contraseña incorrectos.
-                    </div>
-                `;
-            }
-        });
-    }
-
+    // Inicializar fecha por defecto
     const fechaServicioInput = document.getElementById('fechaServicio');
     if (fechaServicioInput) fechaServicioInput.value = new Date().toISOString().split('T')[0];
 
@@ -114,9 +55,35 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // Listener de Login
+    const formLogin = document.getElementById('form-login');
+    if (formLogin) {
+        formLogin.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const userVal = document.getElementById('loginUsuario').value.trim().toLowerCase();
+            const passVal = document.getElementById('loginPassword').value.trim();
+            const alertLogin = document.getElementById('login-error-alert');
+
+            const usuarioEncontrado = USUARIOS.find(u => u.usuario.toLowerCase() === userVal && u.password === passVal);
+
+            if (usuarioEncontrado) {
+                sessionStorage.setItem('aravema_user_session', JSON.stringify(usuarioEncontrado));
+                alertLogin.innerHTML = '';
+                mostrarSistema(usuarioEncontrado);
+            } else {
+                alertLogin.innerHTML = `
+                    <div class="alert alert-danger alert-dismissible fade show text-center" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> Usuario o contraseña incorrectos.
+                    </div>
+                `;
+            }
+        });
+    }
+
+    // Guardar Nuevo Viaje / Guía
     const formNuevoViaje = document.getElementById('form-nuevo-viaje');
     if (formNuevoViaje) {
-        formNuevoViaje.addEventListener('submit', function (e) {
+        formNuevoViaje.addEventListener('submit', async function (e) {
             e.preventDefault();
 
             const tarifaSinIgv = parseFloat(document.getElementById('tarifaSinIgv').value) || 0;
@@ -128,52 +95,53 @@ document.addEventListener('DOMContentLoaded', function () {
             const costoTercero = tipoVehiculo.includes('Tercero') ? (parseFloat(document.getElementById('costoTercero').value) || 0) : 0;
 
             const nuevaGuia = {
-                fecha: document.getElementById('fechaServicio').value || '-',
-                tipoVehiculo: tipoVehiculo,
-                costoTercero: costoTercero,
-                guiaRemitente: document.getElementById('guiaRemitente').value.trim() || '-',
-                guiaTransportista: document.getElementById('guiaTransportista').value.trim() || '-',
+                fecha: document.getElementById('fechaServicio').value,
+                tipo_vehiculo: tipoVehiculo,
+                costo_tercero: costoTercero,
+                guia_remitente: document.getElementById('guiaRemitente').value.trim() || '-',
+                guia_transportista: document.getElementById('guiaTransportista').value.trim() || '-',
                 conductor: document.getElementById('nombreConductor').value.trim() || '-',
                 jabas: parseInt(document.getElementById('numJabas').value) || 0,
                 detalle: document.getElementById('detalleProducto').value.trim() || '-',
-                pesoBruto: document.getElementById('pesoBruto').value.trim() || '-',
-                puntoPartida: document.getElementById('puntoPartida').value.trim() || '-',
-                puntoLlegada: document.getElementById('puntoLlegada').value.trim() || '-',
+                peso_bruto: document.getElementById('pesoBruto').value.trim() || '-',
+                punto_partida: document.getElementById('puntoPartida').value.trim() || '-',
+                punto_llegada: document.getElementById('puntoLlegada').value.trim() || '-',
                 destinatario: document.getElementById('datosDestinatario').value.trim() || '-',
-                tarifaSinIgv: tarifaSinIgv,
+                tarifa_sin_igv: tarifaSinIgv,
                 estiba: estiba,
                 subtotal: subtotal,
-                totalAFacturar: totalAFacturar,
-                estadoFacturacion: document.getElementById('estadoFacturacion').value,
-                estadoPago: document.getElementById('estadoPago').value
+                total_a_facturar: totalAFacturar,
+                estado_facturacion: document.getElementById('estadoFacturacion').value,
+                estado_pago: document.getElementById('estadoPago').value
             };
 
-            const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
-            guias.unshift(nuevaGuia);
-            localStorage.setItem('aravema_guias', JSON.stringify(guias));
-
-            if (costoTercero > 0) {
-                const gastos = JSON.parse(localStorage.getItem('aravema_gastos')) || [];
-                gastos.unshift({
-                    tipo: 'Gasto',
-                    concepto: `Pago Flete Tercero - ${nuevaGuia.conductor} (Guía: ${nuevaGuia.guiaRemitente})`,
-                    monto: costoTercero,
-                    categoria: 'Pago Flete Tercero / Vehículo Externo'
-                });
-                localStorage.setItem('aravema_gastos', JSON.stringify(gastos));
+            const { error } = await supabaseClient.from('guias').insert([nuevaGuia]);
+            if (error) {
+                alert('Error al guardar en Supabase: ' + error.message);
+                return;
             }
 
-            renderizarTodo();
+            if (costoTercero > 0) {
+                await supabaseClient.from('gastos').insert([{
+                    tipo: 'Gasto',
+                    concepto: `Pago Flete Tercero - ${nuevaGuia.conductor} (Guía: ${nuevaGuia.guia_remitente})`,
+                    monto: costoTercero,
+                    categoria: 'Pago Flete Tercero / Vehículo Externo'
+                }]);
+            }
+
+            await renderizarTodo();
             formNuevoViaje.reset();
             toggleVehiculoTercero();
             bootstrap.Modal.getInstance(document.getElementById('nuevoViajeModal'))?.hide();
-            mostrarAlerta('¡Servicio de transporte guardado con éxito!', 'success');
+            mostrarAlerta('¡Servicio de transporte guardado en la nube con éxito!', 'success');
         });
     }
 
+    // Guardar Asistencia
     const formAsistencia = document.getElementById('form-nueva-asistencia');
     if (formAsistencia) {
-        formAsistencia.addEventListener('submit', function (e) {
+        formAsistencia.addEventListener('submit', async function (e) {
             e.preventDefault();
             const nuevaAsist = {
                 fecha: document.getElementById('asistenciaFecha').value,
@@ -182,20 +150,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 obs: document.getElementById('asistenciaObs').value.trim() || '-'
             };
 
-            const asistencias = JSON.parse(localStorage.getItem('aravema_asistencia')) || [];
-            asistencias.unshift(nuevaAsist);
-            localStorage.setItem('aravema_asistencia', JSON.stringify(asistencias));
+            const { error } = await supabaseClient.from('asistencia').insert([nuevaAsist]);
+            if (error) {
+                alert('Error: ' + error.message);
+                return;
+            }
 
-            renderizarTodo();
+            await renderizarTodo();
             formAsistencia.reset();
             bootstrap.Modal.getInstance(document.getElementById('nuevaAsistenciaModal'))?.hide();
             mostrarAlerta('¡Asistencia registrada correctamente!', 'success');
         });
     }
 
+    // Guardar Gasto / Ingreso
     const formGasto = document.getElementById('form-registrar-gasto');
     if (formGasto) {
-        formGasto.addEventListener('submit', function (e) {
+        formGasto.addEventListener('submit', async function (e) {
             e.preventDefault();
             const nuevoGasto = {
                 tipo: document.getElementById('tipoMovimiento').value,
@@ -204,50 +175,60 @@ document.addEventListener('DOMContentLoaded', function () {
                 categoria: document.getElementById('categoriaGasto').value
             };
 
-            const gastos = JSON.parse(localStorage.getItem('aravema_gastos')) || [];
-            gastos.unshift(nuevoGasto);
-            localStorage.setItem('aravema_gastos', JSON.stringify(gastos));
+            const { error } = await supabaseClient.from('gastos').insert([nuevoGasto]);
+            if (error) {
+                alert('Error: ' + error.message);
+                return;
+            }
 
-            renderizarTodo();
+            await renderizarTodo();
             formGasto.reset();
             mostrarAlerta('¡Movimiento contable registrado con éxito!', 'success');
         });
     }
 
+    // Guardar Viático
     const formViatico = document.getElementById('form-nuevo-viatico');
     if (formViatico) {
-        formViatico.addEventListener('submit', function (e) {
+        formViatico.addEventListener('submit', async function (e) {
             e.preventDefault();
             const nuevoViatico = {
                 conductor: document.getElementById('viaticoConductor').value.trim(),
                 monto: parseFloat(document.getElementById('viaticoMonto').value) || 0
             };
-            const viaticos = JSON.parse(localStorage.getItem('aravema_viaticos')) || [];
-            viaticos.unshift(nuevoViatico);
-            localStorage.setItem('aravema_viaticos', JSON.stringify(viaticos));
 
-            renderizarTodo();
+            const { error } = await supabaseClient.from('viaticos').insert([nuevoViatico]);
+            if (error) {
+                alert('Error: ' + error.message);
+                return;
+            }
+
+            await renderizarTodo();
             formViatico.reset();
             bootstrap.Modal.getInstance(document.getElementById('nuevoPagoModal'))?.hide();
             mostrarAlerta('¡Viático registrado correctamente!', 'success');
         });
     }
 
+    // Guardar Mantenimiento
     const formMant = document.getElementById('form-nuevo-mantenimiento');
     if (formMant) {
-        formMant.addEventListener('submit', function (e) {
+        formMant.addEventListener('submit', async function (e) {
             e.preventDefault();
             const nuevoMant = {
                 placa: document.getElementById('mantPlaca').value.trim(),
-                desc: document.getElementById('mantDesc').value.trim(),
+                desc_trabajo: document.getElementById('mantDesc').value.trim(),
                 taller: document.getElementById('mantTaller').value.trim(),
                 estado: document.getElementById('mantEstado').value
             };
-            const mantList = JSON.parse(localStorage.getItem('aravema_mantenimiento')) || [];
-            mantList.unshift(nuevoMant);
-            localStorage.setItem('aravema_mantenimiento', JSON.stringify(mantList));
 
-            renderizarTodo();
+            const { error } = await supabaseClient.from('mantenimiento').insert([nuevoMant]);
+            if (error) {
+                alert('Error: ' + error.message);
+                return;
+            }
+
+            await renderizarTodo();
             formMant.reset();
             bootstrap.Modal.getInstance(document.getElementById('nuevoMantenimientoModal'))?.hide();
             mostrarAlerta('¡Mantenimiento programado con éxito!', 'warning');
@@ -259,7 +240,7 @@ function obtenerUsuarioActual() {
     return JSON.parse(sessionStorage.getItem('aravema_user_session')) || { rol: "ASISTENTE" };
 }
 
-function mostrarSistema(userSession) {
+async function mostrarSistema(userSession) {
     const loginBox = document.getElementById('login-container');
     const mainWrapper = document.getElementById('wrapper');
     if (loginBox) loginBox.classList.add('d-none');
@@ -270,7 +251,6 @@ function mostrarSistema(userSession) {
     badgeRol.textContent = userSession.rol;
     badgeRol.className = userSession.rol === 'ADMIN' ? 'badge bg-danger' : 'badge bg-info text-dark';
 
-    // Restricción visual de módulos por rol
     const navCaja = document.getElementById('nav-caja');
     const kpiContainer = document.getElementById('kpi-container');
 
@@ -282,7 +262,7 @@ function mostrarSistema(userSession) {
         if (kpiContainer) kpiContainer.classList.remove('d-none');
     }
 
-    renderizarTodo();
+    await renderizarTodo();
 }
 
 function ocultarSistema() {
@@ -359,52 +339,54 @@ function calcularTotalesFlete() {
     document.getElementById('totalAFacturar').value = totalConIgv.toFixed(2);
 }
 
-function renderizarTodo() {
+async function renderizarTodo() {
     const currentUser = obtenerUsuarioActual();
-    renderizarGuias(currentUser);
-    renderizarGastos(currentUser);
-    renderizarPrefacturacion();
-    renderizarChoferes(currentUser);
-    renderizarAsistencia(currentUser);
-    renderizarMantenimiento(currentUser);
-    if (currentUser.rol === 'ADMIN') actualizarKPIs();
+    await renderizarGuias(currentUser);
+    await renderizarGastos(currentUser);
+    await renderizarPrefacturacion();
+    await renderizarChoferes(currentUser);
+    await renderizarAsistencia(currentUser);
+    await renderizarMantenimiento(currentUser);
+    if (currentUser.rol === 'ADMIN') await actualizarKPIs();
 }
 
-function renderizarGuias(currentUser) {
-    const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
+async function renderizarGuias(currentUser) {
+    const { data: guias, error } = await supabaseClient.from('guias').select('*').order('id', { ascending: false });
+    if (error) { console.error(error); return; }
+
     const tbodyPanel = document.getElementById('tabla-guias-body');
     const tbodyCompleta = document.getElementById('tabla-guias-completa-body');
     let html = '';
 
     const esAdmin = currentUser.rol === 'ADMIN';
 
-    if (guias.length === 0) {
+    if (!guias || guias.length === 0) {
         html = `<tr><td colspan="10" class="text-center text-muted p-3">No hay servicios registrados.</td></tr>`;
     } else {
-        guias.forEach((g, index) => {
+        guias.forEach((g) => {
             const fecha = g.fecha || '-';
-            const vehiculo = g.tipoVehiculo || 'Propio (C5T-850)';
+            const vehiculo = g.tipo_vehiculo || 'Propio (C5T-850)';
             const esTercero = vehiculo.includes('Tercero');
-            const guiaRem = g.guiaRemitente || '-';
-            const guiaTrans = g.guiaTransportista || '-';
+            const guiaRem = g.guia_remitente || '-';
+            const guiaTrans = g.guia_transportista || '-';
             const conductor = g.conductor || '-';
             const destinatario = g.destinatario || '-';
-            const partida = g.puntoPartida || '-';
-            const llegada = g.puntoLlegada || '-';
+            const partida = g.punto_partida || '-';
+            const llegada = g.punto_llegada || '-';
             const jabas = g.jabas ? `${g.jabas} jabas` : '-';
             const detalle = g.detalle || '-';
-            const peso = g.pesoBruto || '-';
-            const tarifaSinIgv = parseFloat(g.tarifaSinIgv || 0);
-            const totalAFacturar = parseFloat(g.totalAFacturar || (tarifaSinIgv * 1.18) || 0);
-            const estFact = g.estadoFacturacion || 'NO FACTURADO';
-            const estPago = g.estadoPago || 'PENDIENTE';
+            const peso = g.peso_bruto || '-';
+            const tarifaSinIgv = parseFloat(g.tarifa_sin_igv || 0);
+            const totalAFacturar = parseFloat(g.total_a_facturar || 0);
+            const estFact = g.estado_facturacion || 'NO FACTURADO';
+            const estPago = g.estado_pago || 'PENDIENTE';
 
             html += `
                 <tr>
                     <td class="fw-semibold">${fecha}</td>
                     <td>
                         <span class="badge ${esTercero ? 'bg-warning text-dark' : 'bg-primary'} d-block mb-1">${vehiculo}</span>
-                        ${esTercero ? `<small class="text-danger fw-bold">Pago Tercero: S/ ${(g.costoTercero || 0).toFixed(2)}</small>` : ''}
+                        ${esTercero ? `<small class="text-danger fw-bold">Pago Tercero: S/ ${(g.costo_tercero || 0).toFixed(2)}</small>` : ''}
                     </td>
                     <td>
                         <span class="badge bg-light text-dark border d-block mb-1">Rem: ${guiaRem}</span>
@@ -424,19 +406,19 @@ function renderizarGuias(currentUser) {
                         <div class="fw-bold text-success">Total: S/ ${totalAFacturar.toFixed(2)}</div>
                     </td>
                     <td>
-                        <select class="form-select form-select-sm badge-select ${estFact === 'FACTURADO' ? 'bg-success text-white' : 'bg-warning text-dark'}" onchange="cambiarEstadoGuiaFactura(${index}, this.value)" ${!esAdmin ? 'disabled' : ''}>
+                        <select class="form-select form-select-sm badge-select ${estFact === 'FACTURADO' ? 'bg-success text-white' : 'bg-warning text-dark'}" onchange="cambiarEstadoGuiaFactura(${g.id}, this.value)" ${!esAdmin ? 'disabled' : ''}>
                             <option value="NO FACTURADO" ${estFact === 'NO FACTURADO' ? 'selected' : ''}>NO FACTURADO</option>
                             <option value="FACTURADO" ${estFact === 'FACTURADO' ? 'selected' : ''}>FACTURADO</option>
                         </select>
                     </td>
                     <td>
-                        <select class="form-select form-select-sm badge-select ${estPago === 'PAGADO' ? 'bg-success text-white' : 'bg-danger text-white'}" onchange="cambiarEstadoGuiaPago(${index}, this.value)" ${!esAdmin ? 'disabled' : ''}>
+                        <select class="form-select form-select-sm badge-select ${estPago === 'PAGADO' ? 'bg-success text-white' : 'bg-danger text-white'}" onchange="cambiarEstadoGuiaPago(${g.id}, this.value)" ${!esAdmin ? 'disabled' : ''}>
                             <option value="PENDIENTE" ${estPago === 'PENDIENTE' ? 'selected' : ''}>PENDIENTE</option>
                             <option value="PAGADO" ${estPago === 'PAGADO' ? 'selected' : ''}>PAGADO</option>
                         </select>
                     </td>
                     <td class="td-acciones">
-                        ${esAdmin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGuia(${index})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
+                        ${esAdmin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGuia(${g.id})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
                     </td>
                 </tr>
             `;
@@ -446,10 +428,13 @@ function renderizarGuias(currentUser) {
     if (tbodyCompleta) tbodyCompleta.innerHTML = html;
 }
 
-function renderizarGastos(currentUser) {
+async function renderizarGastos(currentUser) {
     if (currentUser.rol !== 'ADMIN') return;
 
-    const gastos = JSON.parse(localStorage.getItem('aravema_gastos')) || [];
+    const { data: gastos, error } = await supabaseClient.from('gastos').select('*').order('id', { ascending: false });
+    const { data: guias } = await supabaseClient.from('guias').select('*');
+    if (error) { console.error(error); return; }
+
     const tbodyGastos = document.getElementById('tabla-gastos-body');
     const balanceEl = document.getElementById('balance-caja');
     if (!tbodyGastos) return;
@@ -458,7 +443,7 @@ function renderizarGastos(currentUser) {
     let totalIngresosExtras = 0;
     let totalGastosGrales = 0;
 
-    gastos.forEach((g, index) => {
+    gastos.forEach((g) => {
         const esIngreso = g.tipo === 'Ingreso';
         const monto = parseFloat(g.monto) || 0;
         let categoriaTexto = g.categoria || 'Gastos Administrativos';
@@ -472,17 +457,16 @@ function renderizarGastos(currentUser) {
                 <td class="fw-semibold text-dark">${g.concepto}</td>
                 <td><span class="badge bg-secondary">${categoriaTexto}</span></td>
                 <td class="fw-bold ${esIngreso ? 'text-success' : 'text-danger'}">${esIngreso ? '+' : '-'} S/ ${monto.toFixed(2)}</td>
-                <td class="td-acciones"><button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGasto(${index})"><i class="bi bi-trash"></i></button></td>
+                <td class="td-acciones"><button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGasto(${g.id})"><i class="bi bi-trash"></i></button></td>
             </tr>
         `;
     });
 
     tbodyGastos.innerHTML = html || `<tr><td colspan="5" class="text-center text-muted">No hay movimientos registrados.</td></tr>`;
 
-    const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
-    const totalFletesPagados = guias
-        .filter(g => g.estadoPago === 'PAGADO')
-        .reduce((acc, curr) => acc + (parseFloat(curr.totalAFacturar) || 0), 0);
+    const totalFletesPagados = (guias || [])
+        .filter(g => g.estado_pago === 'PAGADO')
+        .reduce((acc, curr) => acc + (parseFloat(curr.total_a_facturar) || 0), 0);
 
     const balanceTotal = (totalFletesPagados + totalIngresosExtras) - totalGastosGrales;
 
@@ -491,8 +475,8 @@ function renderizarGastos(currentUser) {
     }
 }
 
-function renderizarPrefacturacion() {
-    const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
+async function renderizarPrefacturacion() {
+    const { data: guias } = await supabaseClient.from('guias').select('*');
     const tbody = document.getElementById('tabla-prefacturacion-body');
     const totalPrefacturaEl = document.getElementById('total-prefactura');
     if (!tbody) return;
@@ -500,14 +484,14 @@ function renderizarPrefacturacion() {
     const resumen = {};
     let totalGeneral = 0;
 
-    guias.forEach(g => {
+    (guias || []).forEach(g => {
         const cliente = g.destinatario || 'Cliente General';
         if (!resumen[cliente]) {
             resumen[cliente] = { cantidad: 0, subtotal: 0, total: 0, guiasDetalle: [] };
         }
         resumen[cliente].cantidad += 1;
-        const sub = parseFloat(g.subtotal || g.tarifaSinIgv || 0);
-        const tot = parseFloat(g.totalAFacturar || (sub * 1.18) || 0);
+        const sub = parseFloat(g.subtotal || g.tarifa_sin_igv || 0);
+        const tot = parseFloat(g.total_a_facturar || (sub * 1.18) || 0);
         resumen[cliente].subtotal += sub;
         resumen[cliente].total += tot;
         totalGeneral += tot;
@@ -548,13 +532,13 @@ function generarDocumentoPrefactura(idIndex) {
 
     let filasDetalle = '';
     info.guiasDetalle.forEach((g) => {
-        const subVal = parseFloat(g.subtotal || g.tarifaSinIgv || 0);
+        const subVal = parseFloat(g.subtotal || g.tarifa_sin_igv || 0);
         filasDetalle += `
             <tr>
                 <td style="text-align: center; padding: 6px; border: 1px solid #000;">1.00</td>
                 <td style="text-align: center; padding: 6px; border: 1px solid #000;">UNIDAD</td>
                 <td style="padding: 6px; border: 1px solid #000;">
-                    SERVICIO TRASLADO DE ${ (g.detalle || 'CARGA AGRÍCOLA').toUpperCase() }, DE ${ (g.puntoPartida || 'ICA').toUpperCase() } A ${ (g.puntoLlegada || 'DESTINO').toUpperCase() }, SEGÚN GUÍA DE REMISIÓN REMITENTE N° ${ g.guiaRemitente || '-' } Y GUÍA TRANSPORTISTA N° ${ g.guiaTransportista || '-' }, EN EL VEHÍCULO CON PLACA: ${ (g.tipoVehiculo || 'C5T-850').toUpperCase() }
+                    SERVICIO TRASLADO DE ${ (g.detalle || 'CARGA AGRÍCOLA').toUpperCase() }, DE ${ (g.punto_partida || 'ICA').toUpperCase() } A ${ (g.punto_llegada || 'DESTINO').toUpperCase() }, SEGÚN GUÍA DE REMISIÓN REMITENTE N° ${ g.guia_remitente || '-' } Y GUÍA TRANSPORTISTA N° ${ g.guia_transportista || '-' }, EN EL VEHÍCULO CON PLACA: ${ (g.tipo_vehiculo || 'C5T-850').toUpperCase() }
                 </td>
                 <td style="text-align: right; padding: 6px; border: 1px solid #000;">${subVal.toFixed(2)}</td>
                 <td style="text-align: right; padding: 6px; border: 1px solid #000;">0.00</td>
@@ -674,10 +658,10 @@ function generarDocumentoPrefactura(idIndex) {
     win.document.close();
 }
 
-function renderizarChoferes(currentUser) {
-    const asistencias = JSON.parse(localStorage.getItem('aravema_asistencia')) || [];
-    const viaticosRegistrados = JSON.parse(localStorage.getItem('aravema_viaticos')) || [];
-    const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
+async function renderizarChoferes(currentUser) {
+    const { data: asistencias } = await supabaseClient.from('asistencia').select('*');
+    const { data: viaticosRegistrados } = await supabaseClient.from('viaticos').select('*');
+    const { data: guias } = await supabaseClient.from('guias').select('*');
     const estadosPagoChoferes = JSON.parse(localStorage.getItem('aravema_pagos_choferes')) || {};
 
     const tbody = document.getElementById('tabla-choferes-body');
@@ -686,8 +670,8 @@ function renderizarChoferes(currentUser) {
     const esAdmin = currentUser.rol === 'ADMIN';
 
     const choferesPropios = new Set();
-    guias.forEach(g => {
-        const vehiculo = g.tipoVehiculo || 'Propio (C5T-850)';
+    (guias || []).forEach(g => {
+        const vehiculo = g.tipo_vehiculo || 'Propio (C5T-850)';
         if (g.conductor && !vehiculo.includes('Tercero')) {
             choferesPropios.add(g.conductor);
         }
@@ -699,7 +683,7 @@ function renderizarChoferes(currentUser) {
         html = `<tr><td colspan="7" class="text-center text-muted p-3">No hay conductores de flota propia (C5T-850) registrados para planilla.</td></tr>`;
     } else {
         choferesPropios.forEach(conductor => {
-            const diasLaborados = asistencias.filter(a => 
+            const diasLaborados = (asistencias || []).filter(a => 
                 a.conductor.toLowerCase() === conductor.toLowerCase() && 
                 a.estado === 'Laborado / Ruta'
             ).length;
@@ -721,7 +705,7 @@ function renderizarChoferes(currentUser) {
                 viaticosBase = 500.00;
             }
 
-            const adelantosEntregados = viaticosRegistrados
+            const adelantosEntregados = (viaticosRegistrados || [])
                 .filter(v => v.conductor.toLowerCase() === conductor.toLowerCase())
                 .reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
 
@@ -750,28 +734,26 @@ function renderizarChoferes(currentUser) {
     tbody.innerHTML = html;
 }
 
-function cambiarEstadoPagoChofer(conductor, nuevoEstado, montoNeto) {
+async function cambiarEstadoPagoChofer(conductor, nuevoEstado, montoNeto) {
     const estadosPagoChoferes = JSON.parse(localStorage.getItem('aravema_pagos_choferes')) || {};
     estadosPagoChoferes[conductor] = nuevoEstado;
     localStorage.setItem('aravema_pagos_choferes', JSON.stringify(estadosPagoChoferes));
 
     if (nuevoEstado === 'PAGADO') {
-        const gastos = JSON.parse(localStorage.getItem('aravema_gastos')) || [];
-        gastos.unshift({
+        await supabaseClient.from('gastos').insert([{
             tipo: 'Gasto',
             concepto: `Pago Planilla Conductor - ${conductor}`,
             monto: parseFloat(montoNeto) || 0,
             categoria: 'Sueldos Personal / Planilla Admin'
-        });
-        localStorage.setItem('aravema_gastos', JSON.stringify(gastos));
+        }]);
         mostrarAlerta(`¡Pago de planilla registrado en caja para ${conductor}!`, 'success');
     }
 
-    renderizarTodo();
+    await renderizarTodo();
 }
 
-function renderizarAsistencia(currentUser) {
-    const asistencias = JSON.parse(localStorage.getItem('aravema_asistencia')) || [];
+async function renderizarAsistencia(currentUser) {
+    const { data: asistencias } = await supabaseClient.from('asistencia').select('*').order('id', { ascending: false });
     const tbody = document.getElementById('tabla-asistencia-body');
     if (!tbody) return;
 
@@ -780,7 +762,7 @@ function renderizarAsistencia(currentUser) {
     let laborados = 0, descansos = 0, taller = 0, faltas = 0;
     let html = '';
 
-    asistencias.forEach((a, index) => {
+    (asistencias || []).forEach((a) => {
         if (a.estado === 'Laborado / Ruta') laborados++;
         else if (a.estado === 'Descanso') descansos++;
         else if (a.estado === 'En Taller') taller++;
@@ -793,7 +775,7 @@ function renderizarAsistencia(currentUser) {
                 <td><span class="badge bg-success">${a.estado}</span></td>
                 <td class="text-muted small">${a.obs || '-'}</td>
                 <td class="td-acciones">
-                    ${esAdmin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarAsistencia(${index})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
+                    ${esAdmin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarAsistencia(${a.id})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
                 </td>
             </tr>
         `;
@@ -806,23 +788,23 @@ function renderizarAsistencia(currentUser) {
     document.getElementById('total-dias-faltas').textContent = faltas;
 }
 
-function renderizarMantenimiento(currentUser) {
-    const mantList = JSON.parse(localStorage.getItem('aravema_mantenimiento')) || [];
+async function renderizarMantenimiento(currentUser) {
+    const { data: mantList } = await supabaseClient.from('mantenimiento').select('*').order('id', { ascending: false });
     const tbody = document.getElementById('tabla-mantenimiento-body');
     if (!tbody) return;
 
     const esAdmin = currentUser.rol === 'ADMIN';
 
     let html = '';
-    mantList.forEach((m, index) => {
+    (mantList || []).forEach((m) => {
         html += `
             <tr>
                 <td class="fw-bold">${m.placa}</td>
-                <td>${m.desc}</td>
+                <td>${m.desc_trabajo}</td>
                 <td>${m.taller}</td>
                 <td><span class="badge bg-warning text-dark">${m.estado}</span></td>
                 <td class="td-acciones">
-                    ${esAdmin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarMantenimiento(${index})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
+                    ${esAdmin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarMantenimiento(${m.id})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
                 </td>
             </tr>
         `;
@@ -830,66 +812,50 @@ function renderizarMantenimiento(currentUser) {
     tbody.innerHTML = html || `<tr><td colspan="5" class="text-center text-muted">Sin mantenimientos.</td></tr>`;
 }
 
-function actualizarKPIs() {
-    const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
-    const gastos = JSON.parse(localStorage.getItem('aravema_gastos')) || [];
+async function actualizarKPIs() {
+    const { data: guias } = await supabaseClient.from('guias').select('*');
+    const { data: gastos } = await supabaseClient.from('gastos').select('*');
 
-    const totalIngresosFletes = guias.reduce((acc, curr) => acc + (parseFloat(curr.totalAFacturar) || 0), 0);
-    const totalGastosGrales = gastos.filter(g => g.tipo !== 'Ingreso').reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
-    const totalCobrado = guias.filter(g => g.estadoPago === 'PAGADO').reduce((acc, curr) => acc + (parseFloat(curr.totalAFacturar) || 0), 0);
+    const totalIngresosFletes = (guias || []).reduce((acc, curr) => acc + (parseFloat(curr.total_a_facturar) || 0), 0);
+    const totalGastosGrales = (gastos || []).filter(g => g.tipo !== 'Ingreso').reduce((acc, curr) => acc + (parseFloat(curr.monto) || 0), 0);
+    const totalCobrado = (guias || []).filter(g => g.estado_pago === 'PAGADO').reduce((acc, curr) => acc + (parseFloat(curr.total_a_facturar) || 0), 0);
 
     document.getElementById('kpi-ingresos').textContent = `S/ ${totalIngresosFletes.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
     document.getElementById('kpi-gastos').textContent = `S/ ${totalGastosGrales.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-    document.getElementById('kpi-viajes').textContent = guias.length;
+    document.getElementById('kpi-viajes').textContent = (guias || []).length;
     document.getElementById('kpi-completados').textContent = `S/ ${totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
 }
 
-function cambiarEstadoGuiaFactura(index, nuevoEstado) {
-    const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
-    if (guias[index]) {
-        guias[index].estadoFacturacion = nuevoEstado;
-        localStorage.setItem('aravema_guias', JSON.stringify(guias));
-        renderizarTodo();
+async function cambiarEstadoGuiaFactura(id, nuevoEstado) {
+    await supabaseClient.from('guias').update({ estado_facturacion: nuevoEstado }).eq('id', id);
+    await renderizarTodo();
+}
+
+async function cambiarEstadoGuiaPago(id, nuevoEstado) {
+    await supabaseClient.from('guias').update({ estado_pago: nuevoEstado }).eq('id', id);
+    await renderizarTodo();
+}
+
+async function eliminarGuia(id) {
+    if (confirm('¿Deseas eliminar este servicio de la base de datos?')) {
+        await supabaseClient.from('guias').delete().eq('id', id);
+        await renderizarTodo();
     }
 }
 
-function cambiarEstadoGuiaPago(index, nuevoEstado) {
-    const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
-    if (guias[index]) {
-        guias[index].estadoPago = nuevoEstado;
-        localStorage.setItem('aravema_guias', JSON.stringify(guias));
-        renderizarTodo();
-    }
+async function eliminarAsistencia(id) {
+    await supabaseClient.from('asistencia').delete().eq('id', id);
+    await renderizarTodo();
 }
 
-function eliminarGuia(index) {
-    if (confirm('¿Deseas eliminar este servicio?')) {
-        const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
-        guias.splice(index, 1);
-        localStorage.setItem('aravema_guias', JSON.stringify(guias));
-        renderizarTodo();
-    }
+async function eliminarGasto(id) {
+    await supabaseClient.from('gastos').delete().eq('id', id);
+    await renderizarTodo();
 }
 
-function eliminarAsistencia(index) {
-    const asistencias = JSON.parse(localStorage.getItem('aravema_asistencia')) || [];
-    asistencias.splice(index, 1);
-    localStorage.setItem('aravema_asistencia', JSON.stringify(asistencias));
-    renderizarTodo();
-}
-
-function eliminarGasto(index) {
-    const gastos = JSON.parse(localStorage.getItem('aravema_gastos')) || [];
-    gastos.splice(index, 1);
-    localStorage.setItem('aravema_gastos', JSON.stringify(gastos));
-    renderizarTodo();
-}
-
-function eliminarMantenimiento(index) {
-    const mantList = JSON.parse(localStorage.getItem('aravema_mantenimiento')) || [];
-    mantList.splice(index, 1);
-    localStorage.setItem('aravema_mantenimiento', JSON.stringify(mantList));
-    renderizarTodo();
+async function eliminarMantenimiento(id) {
+    await supabaseClient.from('mantenimiento').delete().eq('id', id);
+    await renderizarTodo();
 }
 
 function cambiarSeccion(sectionId) {
