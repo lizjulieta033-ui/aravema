@@ -13,7 +13,41 @@
 </head>
 <body>
 
-    <div class="d-flex" id="wrapper">
+    <!-- PANTALLA DE INICIO DE SESIÓN (LOGIN) -->
+    <div id="login-container" class="d-flex justify-content-center align-items-center vh-100 bg-dark bg-gradient">
+        <div class="card shadow-lg p-4 border-0 rounded-4 style-login-card" style="max-width: 420px; width: 100%;">
+            <div class="text-center mb-4">
+                <div class="icon-shape bg-success bg-opacity-10 text-success rounded-circle mx-auto p-3 mb-2 fs-1" style="width: 70px; height: 70px;">
+                    <i class="bi bi-truck"></i>
+                </div>
+                <h4 class="fw-bold text-dark m-0">Aravema Group S.A.C.</h4>
+                <small class="text-muted">Sistema de Gestión de Transporte Agrícola</small>
+            </div>
+
+            <div id="login-error-alert"></div>
+
+            <form id="form-login">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold"><i class="bi bi-person text-primary me-1"></i> Usuario</label>
+                    <input type="text" class="form-control interactive-input" id="loginUsuario" placeholder="Ingrese su usuario" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-semibold"><i class="bi bi-key text-primary me-1"></i> Contraseña</label>
+                    <input type="password" class="form-control interactive-input" id="loginPassword" placeholder="Ingrese su contraseña" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm fs-6">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
+                </button>
+            </form>
+
+            <div class="text-center mt-4">
+                <small class="text-muted" style="font-size: 0.75rem;">RUC: 20615364984 • Ica, Perú</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL DEL SISTEMA (OCULTO POR DEFECTO HASTA INICIAR SESIÓN) -->
+    <div class="d-flex d-none" id="wrapper">
         <!-- Sidebar / Menú Lateral -->
         <div class="sidebar bg-dark border-end" id="sidebar-wrapper">
             <div class="sidebar-heading text-white p-3 d-flex align-items-center gap-2">
@@ -21,6 +55,15 @@
                 <div>
                     <h5 class="m-0 fw-bold">Aravema Group</h5>
                     <small class="text-secondary" style="font-size: 0.75rem;">Transporte Agrícola - Ica</small>
+                </div>
+            </div>
+            <div class="px-3 pt-3">
+                <div class="bg-secondary bg-opacity-25 rounded p-2 text-white d-flex align-items-center gap-2">
+                    <i class="bi bi-person-badge-fill text-warning fs-5"></i>
+                    <div>
+                        <div class="fw-bold text-truncate" style="max-width: 170px;" id="user-display-name">Usuario</div>
+                        <small class="badge bg-warning text-dark" id="user-role-badge">ROL</small>
+                    </div>
                 </div>
             </div>
             <div class="list-group list-group-flush mt-3">
@@ -42,7 +85,7 @@
                 <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-mantenimiento">
                     <i class="bi bi-wrench-adjustable me-2"></i> Mantenimiento Flota
                 </a>
-                <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-ingresos-gastos">
+                <a href="#" class="list-group-item list-group-item-action nav-link" id="nav-caja" data-section="section-ingresos-gastos">
                     <i class="bi bi-wallet2 me-2"></i> Contabilidad / Caja
                 </a>
             </div>
@@ -64,8 +107,8 @@
                         <button class="btn btn-primary d-flex align-items-center gap-2 px-3 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#nuevoViajeModal">
                             <i class="bi bi-plus-lg"></i> Registrar Viaje
                         </button>
-                        <button class="btn btn-outline-danger d-flex align-items-center gap-2 px-3 fw-semibold shadow-sm" onclick="limpiarTodoData()">
-                            <i class="bi bi-arrow-counterclockwise"></i> Reiniciar
+                        <button class="btn btn-outline-danger d-flex align-items-center gap-2 px-3 fw-semibold shadow-sm" onclick="cerrarSesion()">
+                            <i class="bi bi-box-arrow-right"></i> Salir
                         </button>
                     </div>
                 </div>
@@ -78,7 +121,7 @@
 
                 <!-- SECCIÓN 1: PANEL PRINCIPAL -->
                 <div id="section-panel" class="content-section">
-                    <div class="row g-3 mb-4">
+                    <div class="row g-3 mb-4" id="kpi-container">
                         <div class="col-md-3">
                             <div class="card card-kpi border-0 shadow-sm p-3">
                                 <div class="d-flex justify-content-between align-items-center">
@@ -155,7 +198,7 @@
                                                 <th>Tarifa / Total (c/IGV)</th>
                                                 <th>Facturación</th>
                                                 <th>Estado Pago</th>
-                                                <th>Acciones</th>
+                                                <th class="th-acciones">Acciones</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tabla-guias-body"></tbody>
@@ -188,7 +231,7 @@
                                         <th>Tarifa / Total (c/IGV)</th>
                                         <th>Facturación</th>
                                         <th>Estado Pago</th>
-                                        <th>Acciones</th>
+                                        <th class="th-acciones">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-guias-completa-body"></tbody>
@@ -225,7 +268,7 @@
                     </div>
                 </div>
 
-<!-- SECCIÓN 4: PAGO A CHOFERES -->
+                <!-- SECCIÓN 4: PAGO A CHOFERES -->
                 <div id="section-choferes" class="content-section d-none">
                     <div class="card border-0 shadow-sm p-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -245,7 +288,7 @@
                                         <th>Viáticos Asignados (S/)</th>
                                         <th>Adelantos / Descuentos (S/)</th>
                                         <th>Neto a Pagar (S/)</th>
-                                        <th>Estado Pago</th> <!-- <--- ASEGÚRATE DE QUE ESTE TH ESTÉ PRESENTE -->
+                                        <th>Estado Pago</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-choferes-body"></tbody>
@@ -300,7 +343,7 @@
                                         <th>Conductor</th>
                                         <th>Estado de Asistencia</th>
                                         <th>Observación / Ruta</th>
-                                        <th>Acciones</th>
+                                        <th class="th-acciones">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-asistencia-body"></tbody>
@@ -327,7 +370,7 @@
                                         <th>Tipo / Descripción</th>
                                         <th>Taller / Mecánico</th>
                                         <th>Estado Actual</th>
-                                        <th>Acciones</th>
+                                        <th class="th-acciones">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-mantenimiento-body"></tbody>
@@ -383,7 +426,7 @@
                                         <th>Concepto / Descripción</th>
                                         <th>Categoría</th>
                                         <th>Monto (S/)</th>
-                                        <th>Acciones</th>
+                                        <th class="th-acciones">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-gastos-body"></tbody>

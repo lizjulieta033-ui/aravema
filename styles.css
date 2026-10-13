@@ -28,6 +28,7 @@ body {
 .sidebar .list-group-item:hover {
     background-color: rgba(255, 255, 255, 0.08);
     color: #ffffff;
+    transform: translateX(4px);
 }
 
 .sidebar .list-group-item.active {
@@ -39,11 +40,12 @@ body {
 
 .card-kpi {
     border-radius: 10px;
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card-kpi:hover {
-    transform: translateY(-3px);
+    transform: translateY(-4px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
 }
 
 .icon-shape {
@@ -73,10 +75,31 @@ body {
     border-radius: 6px;
     padding: 4px 6px;
     cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* Tarjeta de Login */
+.style-login-card {
+    background: #ffffff;
+    border-top: 4px solid #0d6efd !important;
+    animation: fadeIn 0.4s ease-in-out;
+}
+
+/* Efectos interactivos para inputs */
+.interactive-input {
+    transition: all 0.25s ease-in-out;
+    border: 1px solid #ced4da;
+}
+
+.interactive-input:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+    background-color: #fff;
+    transform: scale(1.01);
 }
 
 @media print {
-    #sidebar-wrapper, .navbar, .btn, .modal, .dropdown, form {
+    #sidebar-wrapper, .navbar, .btn, .modal, .dropdown, form, #login-container {
         display: none !important;
     }
     #page-content-wrapper {

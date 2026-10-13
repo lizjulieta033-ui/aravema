@@ -1,3 +1,9 @@
+// CONFIGURACIÓN DE ROLES Y CREDENCIALES
+const USUARIOS = [
+    { usuario: "liz", password: "admin123", nombre: "Liz Misarayme (Gerencia)", rol: "ADMIN" },
+    { usuario: "asistente", password: "123456", nombre: "Asistente Operativo", rol: "ASISTENTE" }
+];
+
 // Categorías de Contabilidad General
 const CATEGORIAS_GASTOS = [
     "SUNAT / Impuestos",
@@ -53,12 +59,45 @@ const asistenciaInicial = [
 ];
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Verificación de sesión activa
+    const userSession = JSON.parse(sessionStorage.getItem('aravema_user_session'));
+    if (userSession) {
+        mostrarSistema(userSession);
+    } else {
+        ocultarSistema();
+    }
+
     if (!localStorage.getItem('aravema_guias')) localStorage.setItem('aravema_guias', JSON.stringify(guiasIniciales));
     if (!localStorage.getItem('aravema_gastos')) localStorage.setItem('aravema_gastos', JSON.stringify(gastosIniciales));
     if (!localStorage.getItem('aravema_viaticos')) localStorage.setItem('aravema_viaticos', JSON.stringify(viaticosIniciales));
     if (!localStorage.getItem('aravema_mantenimiento')) localStorage.setItem('aravema_mantenimiento', JSON.stringify(mantenimientoInicial));
     if (!localStorage.getItem('aravema_asistencia')) localStorage.setItem('aravema_asistencia', JSON.stringify(asistenciaInicial));
     if (!localStorage.getItem('aravema_pagos_choferes')) localStorage.setItem('aravema_pagos_choferes', JSON.stringify({}));
+
+    // Listener de Login
+    const formLogin = document.getElementById('form-login');
+    if (formLogin) {
+        formLogin.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const userVal = document.getElementById('loginUsuario').value.trim();
+            const passVal = document.getElementById('loginPassword').value.trim();
+            const alertLogin = document.getElementById('login-error-alert');
+
+            const usuarioEncontrado = USUARIOS.find(u => u.usuario.toLowerCase() === userVal.toLowerCase() && u.password === passVal);
+
+            if (usuarioEncontrado) {
+                sessionStorage.setItem('aravema_user_session', JSON.stringify(usuarioEncontrado));
+                alertLogin.innerHTML = '';
+                mostrarSistema(usuarioEncontrado);
+            } else {
+                alertLogin.innerHTML = `
+                    <div class="alert alert-danger alert-dismissible fade show text-center" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> Usuario o contraseña incorrectos.
+                    </div>
+                `;
+            }
+        });
+    }
 
     const fechaServicioInput = document.getElementById('fechaServicio');
     if (fechaServicioInput) fechaServicioInput.value = new Date().toISOString().split('T')[0];
@@ -67,8 +106,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('numJabas')?.addEventListener('input', calcularEstibaAutomatica);
     document.getElementById('datosDestinatario')?.addEventListener('input', autocompletarTarifaCliente);
-
-    renderizarTodo();
 
     document.querySelectorAll('.sidebar .nav-link').forEach(link => {
         link.addEventListener('click', function (e) {
@@ -218,6 +255,48 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+function obtenerUsuarioActual() {
+    return JSON.parse(sessionStorage.getItem('aravema_user_session')) || { rol: "ASISTENTE" };
+}
+
+function mostrarSistema(userSession) {
+    const loginBox = document.getElementById('login-container');
+    const mainWrapper = document.getElementById('wrapper');
+    if (loginBox) loginBox.classList.add('d-none');
+    if (mainWrapper) mainWrapper.classList.remove('d-none');
+
+    document.getElementById('user-display-name').textContent = userSession.nombre;
+    const badgeRol = document.getElementById('user-role-badge');
+    badgeRol.textContent = userSession.rol;
+    badgeRol.className = userSession.rol === 'ADMIN' ? 'badge bg-danger' : 'badge bg-info text-dark';
+
+    // Restricción visual de módulos por rol
+    const navCaja = document.getElementById('nav-caja');
+    const kpiContainer = document.getElementById('kpi-container');
+
+    if (userSession.rol === 'ASISTENTE') {
+        if (navCaja) navCaja.classList.add('d-none');
+        if (kpiContainer) kpiContainer.classList.add('d-none');
+    } else {
+        if (navCaja) navCaja.classList.remove('d-none');
+        if (kpiContainer) kpiContainer.classList.remove('d-none');
+    }
+
+    renderizarTodo();
+}
+
+function ocultarSistema() {
+    const loginBox = document.getElementById('login-container');
+    const mainWrapper = document.getElementById('wrapper');
+    if (loginBox) loginBox.classList.remove('d-none');
+    if (mainWrapper) mainWrapper.classList.add('d-none');
+}
+
+function cerrarSesion() {
+    sessionStorage.removeItem('aravema_user_session');
+    ocultarSistema();
+}
+
 function toggleVehiculoTercero() {
     const tipo = document.getElementById('tipoVehiculo')?.value;
     const divTercero = document.getElementById('divCostoTercero');
@@ -281,20 +360,23 @@ function calcularTotalesFlete() {
 }
 
 function renderizarTodo() {
-    renderizarGuias();
-    renderizarGastos();
+    const currentUser = obtenerUsuarioActual();
+    renderizarGuias(currentUser);
+    renderizarGastos(currentUser);
     renderizarPrefacturacion();
-    renderizarChoferes();
-    renderizarAsistencia();
-    renderizarMantenimiento();
-    actualizarKPIs();
+    renderizarChoferes(currentUser);
+    renderizarAsistencia(currentUser);
+    renderizarMantenimiento(currentUser);
+    if (currentUser.rol === 'ADMIN') actualizarKPIs();
 }
 
-function renderizarGuias() {
+function renderizarGuias(currentUser) {
     const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
     const tbodyPanel = document.getElementById('tabla-guias-body');
     const tbodyCompleta = document.getElementById('tabla-guias-completa-body');
     let html = '';
+
+    const esAdmin = currentUser.rol === 'ADMIN';
 
     if (guias.length === 0) {
         html = `<tr><td colspan="10" class="text-center text-muted p-3">No hay servicios registrados.</td></tr>`;
@@ -342,19 +424,19 @@ function renderizarGuias() {
                         <div class="fw-bold text-success">Total: S/ ${totalAFacturar.toFixed(2)}</div>
                     </td>
                     <td>
-                        <select class="form-select form-select-sm badge-select ${estFact === 'FACTURADO' ? 'bg-success text-white' : 'bg-warning text-dark'}" onchange="cambiarEstadoGuiaFactura(${index}, this.value)">
+                        <select class="form-select form-select-sm badge-select ${estFact === 'FACTURADO' ? 'bg-success text-white' : 'bg-warning text-dark'}" onchange="cambiarEstadoGuiaFactura(${index}, this.value)" ${!esAdmin ? 'disabled' : ''}>
                             <option value="NO FACTURADO" ${estFact === 'NO FACTURADO' ? 'selected' : ''}>NO FACTURADO</option>
                             <option value="FACTURADO" ${estFact === 'FACTURADO' ? 'selected' : ''}>FACTURADO</option>
                         </select>
                     </td>
                     <td>
-                        <select class="form-select form-select-sm badge-select ${estPago === 'PAGADO' ? 'bg-success text-white' : 'bg-danger text-white'}" onchange="cambiarEstadoGuiaPago(${index}, this.value)">
+                        <select class="form-select form-select-sm badge-select ${estPago === 'PAGADO' ? 'bg-success text-white' : 'bg-danger text-white'}" onchange="cambiarEstadoGuiaPago(${index}, this.value)" ${!esAdmin ? 'disabled' : ''}>
                             <option value="PENDIENTE" ${estPago === 'PENDIENTE' ? 'selected' : ''}>PENDIENTE</option>
                             <option value="PAGADO" ${estPago === 'PAGADO' ? 'selected' : ''}>PAGADO</option>
                         </select>
                     </td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGuia(${index})"><i class="bi bi-trash"></i></button>
+                    <td class="td-acciones">
+                        ${esAdmin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGuia(${index})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
                     </td>
                 </tr>
             `;
@@ -364,7 +446,9 @@ function renderizarGuias() {
     if (tbodyCompleta) tbodyCompleta.innerHTML = html;
 }
 
-function renderizarGastos() {
+function renderizarGastos(currentUser) {
+    if (currentUser.rol !== 'ADMIN') return;
+
     const gastos = JSON.parse(localStorage.getItem('aravema_gastos')) || [];
     const tbodyGastos = document.getElementById('tabla-gastos-body');
     const balanceEl = document.getElementById('balance-caja');
@@ -377,7 +461,6 @@ function renderizarGastos() {
     gastos.forEach((g, index) => {
         const esIngreso = g.tipo === 'Ingreso';
         const monto = parseFloat(g.monto) || 0;
-        
         let categoriaTexto = g.categoria || 'Gastos Administrativos';
 
         if (esIngreso) totalIngresosExtras += monto;
@@ -385,15 +468,11 @@ function renderizarGastos() {
 
         html += `
             <tr>
-                <td>
-                    <span class="badge ${esIngreso ? 'bg-success' : 'bg-danger'}">${g.tipo || 'Gasto'}</span>
-                </td>
+                <td><span class="badge ${esIngreso ? 'bg-success' : 'bg-danger'}">${g.tipo || 'Gasto'}</span></td>
                 <td class="fw-semibold text-dark">${g.concepto}</td>
                 <td><span class="badge bg-secondary">${categoriaTexto}</span></td>
-                <td class="fw-bold ${esIngreso ? 'text-success' : 'text-danger'}">
-                    ${esIngreso ? '+' : '-'} S/ ${monto.toFixed(2)}
-                </td>
-                <td><button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGasto(${index})"><i class="bi bi-trash"></i></button></td>
+                <td class="fw-bold ${esIngreso ? 'text-success' : 'text-danger'}">${esIngreso ? '+' : '-'} S/ ${monto.toFixed(2)}</td>
+                <td class="td-acciones"><button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGasto(${index})"><i class="bi bi-trash"></i></button></td>
             </tr>
         `;
     });
@@ -595,7 +674,7 @@ function generarDocumentoPrefactura(idIndex) {
     win.document.close();
 }
 
-function renderizarChoferes() {
+function renderizarChoferes(currentUser) {
     const asistencias = JSON.parse(localStorage.getItem('aravema_asistencia')) || [];
     const viaticosRegistrados = JSON.parse(localStorage.getItem('aravema_viaticos')) || [];
     const guias = JSON.parse(localStorage.getItem('aravema_guias')) || [];
@@ -603,6 +682,8 @@ function renderizarChoferes() {
 
     const tbody = document.getElementById('tabla-choferes-body');
     if (!tbody) return;
+
+    const esAdmin = currentUser.rol === 'ADMIN';
 
     const choferesPropios = new Set();
     guias.forEach(g => {
@@ -656,7 +737,7 @@ function renderizarChoferes() {
                     <td class="text-danger fw-semibold">- S/ ${adelantosEntregados.toFixed(2)}</td>
                     <td class="fw-bold text-success fs-6">S/ ${totalNetoAPagar.toFixed(2)}</td>
                     <td>
-                        <select class="form-select form-select-sm badge-select ${estadoActualPago === 'PAGADO' ? 'bg-success text-white' : 'bg-danger text-white'}" onchange="cambiarEstadoPagoChofer('${conductor}', this.value, ${totalNetoAPagar})">
+                        <select class="form-select form-select-sm badge-select ${estadoActualPago === 'PAGADO' ? 'bg-success text-white' : 'bg-danger text-white'}" onchange="cambiarEstadoPagoChofer('${conductor}', this.value, ${totalNetoAPagar})" ${!esAdmin ? 'disabled' : ''}>
                             <option value="PENDIENTE" ${estadoActualPago === 'PENDIENTE' ? 'selected' : ''}>PENDIENTE</option>
                             <option value="PAGADO" ${estadoActualPago === 'PAGADO' ? 'selected' : ''}>PAGADO</option>
                         </select>
@@ -689,10 +770,12 @@ function cambiarEstadoPagoChofer(conductor, nuevoEstado, montoNeto) {
     renderizarTodo();
 }
 
-function renderizarAsistencia() {
+function renderizarAsistencia(currentUser) {
     const asistencias = JSON.parse(localStorage.getItem('aravema_asistencia')) || [];
     const tbody = document.getElementById('tabla-asistencia-body');
     if (!tbody) return;
+
+    const esAdmin = currentUser.rol === 'ADMIN';
 
     let laborados = 0, descansos = 0, taller = 0, faltas = 0;
     let html = '';
@@ -709,7 +792,9 @@ function renderizarAsistencia() {
                 <td class="fw-bold text-dark">${a.conductor}</td>
                 <td><span class="badge bg-success">${a.estado}</span></td>
                 <td class="text-muted small">${a.obs || '-'}</td>
-                <td><button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarAsistencia(${index})"><i class="bi bi-trash"></i></button></td>
+                <td class="td-acciones">
+                    ${esAdmin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarAsistencia(${index})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
+                </td>
             </tr>
         `;
     });
@@ -721,10 +806,12 @@ function renderizarAsistencia() {
     document.getElementById('total-dias-faltas').textContent = faltas;
 }
 
-function renderizarMantenimiento() {
+function renderizarMantenimiento(currentUser) {
     const mantList = JSON.parse(localStorage.getItem('aravema_mantenimiento')) || [];
     const tbody = document.getElementById('tabla-mantenimiento-body');
     if (!tbody) return;
+
+    const esAdmin = currentUser.rol === 'ADMIN';
 
     let html = '';
     mantList.forEach((m, index) => {
@@ -734,7 +821,9 @@ function renderizarMantenimiento() {
                 <td>${m.desc}</td>
                 <td>${m.taller}</td>
                 <td><span class="badge bg-warning text-dark">${m.estado}</span></td>
-                <td><button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarMantenimiento(${index})"><i class="bi bi-trash"></i></button></td>
+                <td class="td-acciones">
+                    ${esAdmin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarMantenimiento(${index})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
+                </td>
             </tr>
         `;
     });
@@ -801,13 +890,6 @@ function eliminarMantenimiento(index) {
     mantList.splice(index, 1);
     localStorage.setItem('aravema_mantenimiento', JSON.stringify(mantList));
     renderizarTodo();
-}
-
-function limpiarTodoData() {
-    if (confirm('¿Estás seguro de reiniciar todos los datos?')) {
-        localStorage.clear();
-        location.reload();
-    }
 }
 
 function cambiarSeccion(sectionId) {
