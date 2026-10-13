@@ -30,7 +30,7 @@ const CATEGORIAS_INGRESOS = [
     "Otros Ingresos"
 ];
 
-document.addEventListener('DOMContentLoaded', async function () {
+document.addEventListener('DOMContentLoaded', function () {
     // Verificación de sesión activa
     const userSession = JSON.parse(sessionStorage.getItem('aravema_user_session'));
     if (userSession) {
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
     });
 
-    // Listener de Login
+    // Listener de Login Corregido
     const formLogin = document.getElementById('form-login');
     if (formLogin) {
         formLogin.addEventListener('submit', function (e) {
@@ -68,14 +68,16 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             if (usuarioEncontrado) {
                 sessionStorage.setItem('aravema_user_session', JSON.stringify(usuarioEncontrado));
-                alertLogin.innerHTML = '';
+                if (alertLogin) alertLogin.innerHTML = '';
                 mostrarSistema(usuarioEncontrado);
             } else {
-                alertLogin.innerHTML = `
-                    <div class="alert alert-danger alert-dismissible fade show text-center" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill me-1"></i> Usuario o contraseña incorrectos.
-                    </div>
-                `;
+                if (alertLogin) {
+                    alertLogin.innerHTML = `
+                        <div class="alert alert-danger alert-dismissible fade show text-center" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i> Usuario o contraseña incorrectos.
+                        </div>
+                    `;
+                }
             }
         });
     }
@@ -443,7 +445,7 @@ async function renderizarGastos(currentUser) {
     let totalIngresosExtras = 0;
     let totalGastosGrales = 0;
 
-    gastos.forEach((g) => {
+    (gastos || []).forEach((g) => {
         const esIngreso = g.tipo === 'Ingreso';
         const monto = parseFloat(g.monto) || 0;
         let categoriaTexto = g.categoria || 'Gastos Administrativos';

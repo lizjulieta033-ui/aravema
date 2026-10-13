@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS Client (Importante: antes del script.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -46,9 +48,9 @@
         </div>
     </div>
 
-    <!-- PANEL DEL SISTEMA (OCULTO POR DEFECTO HASTA INICIAR SESIÓN) -->
+    <!-- PANEL DEL SISTEMA -->
     <div class="d-flex d-none" id="wrapper">
-        <!-- Sidebar / Menú Lateral -->
+        <!-- Sidebar -->
         <div class="sidebar bg-dark border-end" id="sidebar-wrapper">
             <div class="sidebar-heading text-white p-3 d-flex align-items-center gap-2">
                 <i class="bi bi-truck fs-3 text-success"></i>
@@ -277,7 +279,7 @@
                                 <i class="bi bi-plus-lg me-1"></i> Registrar Viático / Adelanto
                             </button>
                         </div>
-                        <p class="text-muted">Liquidación calculada exclusivamente para choferes de la unidad propia <strong>C5T-850</strong> según días laborados (S/ 2500 mensual + S/ 500 viáticos) y deducción de adelantos.</p>
+                        <p class="text-muted">Liquidación calculada exclusivamente para choferes de la unidad propia <strong>C5T-850</strong> según días laborados y deducción de adelantos.</p>
                         <div class="table-responsive mt-3">
                             <table class="table table-hover align-middle">
                                 <thead class="table-light">
@@ -379,13 +381,13 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 7: INGRESOS Y GASTOS (CONTABILIDAD GENERAL) -->
+                <!-- SECCIÓN 7: INGRESOS Y GASTOS -->
                 <div id="section-ingresos-gastos" class="content-section d-none">
                     <div class="card border-0 shadow-sm p-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
                                 <h4 class="fw-bold m-0"><i class="bi bi-wallet2 text-primary me-2"></i>Contabilidad General: Movimientos de Caja</h4>
-                                <small class="text-muted">Administración global de ingresos (fletes pagados, préstamos) y gastos (pagos a terceros, SUNAT, contador, planilla).</small>
+                                <small class="text-muted">Administración global de ingresos y gastos.</small>
                             </div>
                             <div class="text-end">
                                 <span class="badge bg-success fs-6 d-block mb-1 shadow-sm" id="balance-caja">Balance de Caja: S/ 0.00</span>
@@ -439,7 +441,8 @@
         </div>
     </div>
 
-    <!-- MODAL REGISTRAR NUEVO SERVICIO / VIAJE -->
+    <!-- MODALES -->
+    <!-- Modal Nuevo Viaje -->
     <div class="modal fade" id="nuevoViajeModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content shadow-lg">
@@ -592,7 +595,7 @@
         </div>
     </div>
 
-    <!-- Modal Registrar Viático / Adelanto -->
+    <!-- Modal Registrar Viático -->
     <div class="modal fade" id="nuevoPagoModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content shadow-lg">
@@ -620,7 +623,7 @@
         </div>
     </div>
 
-    <!-- Modal Programar Mantenimiento -->
+    <!-- Modal Mantenimiento -->
     <div class="modal fade" id="nuevoMantenimientoModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content shadow-lg">
