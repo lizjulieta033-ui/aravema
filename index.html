@@ -805,8 +805,8 @@
                     <div class="d-flex align-items-center gap-3">
                         <div class="modal-icono"><i class="bi bi-truck-front"></i></div>
                         <div>
-                            <h5 class="modal-title fw-bold font-titulo m-0">Registrar Servicio de Transporte</h5>
-                            <small class="opacity-75">Sube la guía en PDF o completa los datos · los campos con <span class="text-warning">*</span> son obligatorios</small>
+                            <h5 class="modal-title fw-bold font-titulo m-0" id="tituloModalViaje">Registrar Servicio de Transporte</h5>
+                            <small class="opacity-75" id="subtituloModalViaje">Sube la guía en PDF o completa los datos · los campos con <span class="text-warning">*</span> son obligatorios</small>
                         </div>
                     </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -1014,9 +1014,26 @@
                         <small class="text-muted me-auto" id="estado-borrador"><i class="bi bi-cloud-check me-1"></i>Los datos se guardan como borrador mientras escribes</small>
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar <kbd class="ms-1">Esc</kbd></button>
                         <button type="submit" class="btn btn-outline-primary fw-bold" data-accion="otro"><i class="bi bi-plus-circle me-1"></i> Guardar y registrar otro</button>
-                        <button type="submit" class="btn btn-primary fw-bold" data-accion="cerrar"><i class="bi bi-save me-1"></i> Guardar servicio <kbd class="ms-1">Ctrl ↵</kbd></button>
+                        <button type="submit" class="btn btn-primary fw-bold" data-accion="cerrar"><i class="bi bi-save me-1"></i> <span id="textoGuardarViaje">Guardar servicio</span> <kbd class="ms-1">Ctrl ↵</kbd></button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ver Guía (solo lectura) -->
+    <div class="modal fade" id="verGuiaModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold font-titulo"><i class="bi bi-file-earmark-text me-2"></i><span id="verGuiaTitulo">Guía</span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-4" id="verGuiaCuerpo"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary fw-bold" id="verGuiaEditar"><i class="bi bi-pencil me-1"></i> Editar guía</button>
+                </div>
             </div>
         </div>
     </div>

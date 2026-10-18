@@ -819,3 +819,24 @@ body.cargando #barra-carga {
 }
 .pestanas-guia .nav-link .badge { background: #ece8dc; color: var(--agro-tinta-suave); margin-left: 4px; }
 .pestanas-guia .nav-link.active .badge { background: var(--agro-verde); color: #fff; }
+
+/* Ficha "Ver guía" */
+.titulo-ficha {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--agro-verde);
+    border-bottom: 1px solid var(--agro-borde);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+}
+.dato-guia {
+    background: #f8f6ef;
+    border-radius: 0.6rem;
+    padding: 8px 12px;
+    height: 100%;
+}
+.dato-guia small { display: block; color: var(--agro-tinta-suave); font-weight: 700; font-size: 0.72rem; }
+.dato-guia div { font-weight: 600; word-break: break-word; }

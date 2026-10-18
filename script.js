@@ -74,6 +74,7 @@ let USUARIO = null; // perfil del usuario conectado (tabla perfiles)
 let GRAFICOS = {};       // instancias de Chart.js por id de canvas
 let FILTRO_GUIAS = 'TODAS';
 let FILTRO_TIPO_GUIA = 'TODAS'; // pestañas: TODAS / REMITENTE / TRANSPORTISTA
+let GUIA_EDITANDO = null;       // id de la guía que se está editando (null = registrando una nueva)
 let DB = { guias: [], gastos: [], asistencia: [], mantenimiento: [], choferes: [], perfiles: [], bitacora: [] };
 let PREFACTURAS = [];   // grupos por cliente pendientes de facturar
 let POR_COBRAR = [];    // grupos por cliente facturados sin cobrar
@@ -573,7 +574,7 @@ async function guardarViaje(e) {
         ? (document.getElementById('guiaTransportista').value.trim().toUpperCase() || '-')
         : '-';
 
-    const duplicada = buscarGuiaRegistrada(tipo === 'TRANSPORTISTA' ? guiaTransportista : guiaRemitente);
+    const duplicada = buscarGuiaRegistrada(tipo === 'TRANSPORTISTA' ? guiaTransportista : guiaRemitente, GUIA_EDITANDO);
     if (duplicada && !confirm(`La guía ${numeroGuia(duplicada)} ya está registrada (${duplicada.fecha}, ${duplicada.destinatario}).\n\n¿Registrarla de nuevo de todos modos?`)) {
         return;
     }
@@ -606,16 +607,29 @@ async function guardarViaje(e) {
         estado_pago: estadoPago
     };
 
-    let { error } = await supabaseClient.from('guias').insert([nuevaGuia]);
+    // Nueva guía → insert; editando → update de esa guía
+    const idEditado = GUIA_EDITANDO;
+    const guardar = datos => idEditado
+        ? supabaseClient.from('guias').update(datos).eq('id', idEditado)
+        : supabaseClient.from('guias').insert([datos]);
+
+    let { error } = await guardar(nuevaGuia);
     if (error && /tipo_guia|remitente/.test(error.message)) {
         // Supabase todavía sin migracion_v4: se guarda igual, sin el tipo de guía ni el remitente
         const { tipo_guia, remitente, ...sinCamposNuevos } = nuevaGuia;
-        ({ error } = await supabaseClient.from('guias').insert([sinCamposNuevos]));
+        ({ error } = await guardar(sinCamposNuevos));
         if (!error) mostrarAlerta('Guía guardada, pero falta ejecutar migracion_v4_tipo_guia.sql en Supabase para guardar el tipo de guía y el remitente.', 'warning');
     }
     if (error) {
         console.error(error);
         mostrarError('Error al guardar el servicio: ' + error.message);
+        return;
+    }
+
+    if (idEditado) {
+        cerrarModal('nuevoViajeModal'); // al cerrarse vuelve solo al modo "registrar"
+        await renderizarTodo();
+        mostrarAlerta(`¡Guía ${numeroGuia(nuevaGuia)} actualizada!`, 'success');
         return;
     }
 
@@ -652,10 +666,141 @@ async function guardarViaje(e) {
 }
 
 // Busca una guía ya registrada con ese número (sea N° remitente o N° transportista)
-function buscarGuiaRegistrada(numero) {
+function buscarGuiaRegistrada(numero, excluirId = null) {
     if (!numero || numero === '-') return null;
     const clave = normNombre(numero);
-    return DB.guias.find(g => normNombre(g.guia_remitente) === clave || normNombre(g.guia_transportista) === clave) || null;
+    return DB.guias.find(g => g.id !== excluirId
+        && (normNombre(g.guia_remitente) === clave || normNombre(g.guia_transportista) === clave)) || null;
+}
+
+// -------------------------------------------------------------
+// VER Y EDITAR UNA GUÍA REGISTRADA
+// -------------------------------------------------------------
+function verGuia(id) {
+    const g = DB.guias.find(x => x.id === id);
+    if (!g) return;
+    const esTransp = tipoGuia(g) === 'TRANSPORTISTA';
+    const esTercero = esGuiaTercero(g);
+    const valor = v => (v === null || v === undefined || v === '' ? '-' : esc(v));
+    const dato = (etiqueta, contenido, ancho = 'col-sm-6') =>
+        `<div class="${ancho}"><div class="dato-guia"><small>${etiqueta}</small><div>${contenido}</div></div></div>`;
+    const estFact = estadoFacturacion(g);
+    const estPago = estadoPagoGuia(g);
+    const subtotal = num(g.subtotal || num(g.tarifa_sin_igv) + num(g.estiba));
+
+    document.getElementById('verGuiaTitulo').textContent = `Guía ${numeroGuia(g)}`;
+    document.getElementById('verGuiaCuerpo').innerHTML = `
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <span class="badge rounded-pill ${esTransp ? 'tipo-guia-transportista' : 'tipo-guia-remitente'} fs-6">Guía ${esTransp ? 'Transportista' : 'Remitente'}</span>
+            <span class="badge rounded-pill ${esTercero ? 'bg-warning text-dark' : 'bg-primary'} fs-6"><i class="bi ${esTercero ? 'bi-truck-flatbed' : 'bi-truck'} me-1"></i>${esTercero ? 'Vehículo tercero' : 'Flota propia C5T-850'}</span>
+            <span class="badge rounded-pill ${estFact === 'FACTURADO' ? 'bg-success' : 'bg-warning text-dark'} fs-6">${estFact}</span>
+            <span class="badge rounded-pill ${estPago === 'PAGADO' ? 'bg-success' : 'bg-danger'} fs-6">${estPago}</span>
+        </div>
+
+        <h6 class="titulo-ficha"><i class="bi bi-file-earmark-text me-1"></i> Documento</h6>
+        <div class="row g-2 mb-3">
+            ${dato('Fecha', valor(g.fecha))}
+            ${esTransp ? dato('N° Guía Transportista', valor(g.guia_transportista)) : ''}
+            ${dato('N° Guía Remitente', valor(g.guia_remitente))}
+        </div>
+
+        <h6 class="titulo-ficha"><i class="bi bi-person me-1"></i> Transporte</h6>
+        <div class="row g-2 mb-3">
+            ${dato('Conductor', valor(g.conductor))}
+            ${esTercero ? dato('Transportista tercero', valor(g.tercero)) : ''}
+            ${esTercero ? dato('Monto acordado con el tercero', soles(g.costo_tercero)) : ''}
+        </div>
+
+        <h6 class="titulo-ficha"><i class="bi bi-geo-alt me-1"></i> Cliente y ruta</h6>
+        <div class="row g-2 mb-3">
+            ${dato('Remitente (quien envía)', valor(g.remitente))}
+            ${dato('Destinatario / cliente', valor(g.destinatario))}
+            ${dato('Punto de partida', valor(g.punto_partida))}
+            ${dato('Punto de llegada', valor(g.punto_llegada))}
+        </div>
+
+        <h6 class="titulo-ficha"><i class="bi bi-box-seam me-1"></i> Carga</h6>
+        <div class="row g-2 mb-3">
+            ${dato('Producto', valor(g.detalle), 'col-sm-6')}
+            ${dato('N° Jabas', valor(g.jabas ?? 0), 'col-6 col-sm-3')}
+            ${dato('Peso bruto', valor(g.peso_bruto), 'col-6 col-sm-3')}
+        </div>
+
+        <h6 class="titulo-ficha"><i class="bi bi-currency-dollar me-1"></i> Cobro</h6>
+        <div class="row g-2">
+            ${dato('Tarifa sin IGV', soles(g.tarifa_sin_igv), 'col-6 col-sm-3')}
+            ${dato('Estiba', soles(g.estiba), 'col-6 col-sm-3')}
+            ${dato('IGV (18%)', soles(subtotal * 0.18), 'col-6 col-sm-3')}
+            ${dato('Total a facturar', `<strong class="text-success">${soles(g.total_a_facturar)}</strong>`, 'col-6 col-sm-3')}
+        </div>
+    `;
+
+    const botonEditar = document.getElementById('verGuiaEditar');
+    botonEditar.classList.toggle('d-none', !esAdmin());
+    botonEditar.onclick = () => {
+        cerrarModal('verGuiaModal');
+        setTimeout(() => abrirEditarGuia(id), 350);
+    };
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('verGuiaModal')).show();
+}
+
+function abrirEditarGuia(id) {
+    const g = DB.guias.find(x => x.id === id);
+    if (!g) return;
+    const form = document.getElementById('form-nuevo-viaje');
+    GUIA_EDITANDO = id;
+    form.reset();
+
+    const poner = (idCampo, valor) => { document.getElementById(idCampo).value = valor ?? ''; };
+    poner('fechaServicio', g.fecha);
+    poner('tipoVehiculo', esGuiaTercero(g) ? 'Tercero / Externo' : 'Propio (C5T-850)');
+    poner('nombreConductor', g.conductor === '-' ? '' : g.conductor);
+    poner('terceroNombre', g.tercero);
+    poner('costoTercero', num(g.costo_tercero).toFixed(2));
+    poner('guiaRemitente', g.guia_remitente === '-' && tipoGuia(g) === 'REMITENTE' ? '' : g.guia_remitente);
+    poner('guiaTransportista', g.guia_transportista === '-' ? '' : g.guia_transportista);
+    poner('remitenteNombre', g.remitente || '-');
+    poner('detalleProducto', g.detalle);
+    poner('numJabas', num(g.jabas));
+    poner('pesoBruto', g.peso_bruto);
+    poner('datosDestinatario', g.destinatario === '-' ? '' : g.destinatario);
+    poner('puntoPartida', g.punto_partida);
+    poner('puntoLlegada', g.punto_llegada);
+    poner('tarifaSinIgv', num(g.tarifa_sin_igv).toFixed(2));
+    poner('montoEstiba', num(g.estiba).toFixed(2));
+    document.getElementById(tipoGuia(g) === 'TRANSPORTISTA' ? 'tipoGuiaTra' : 'tipoGuiaRem').checked = true;
+    document.getElementById(estadoFacturacion(g) === 'FACTURADO' ? 'factSi' : 'factNo').checked = true;
+    document.getElementById(estadoPagoGuia(g) === 'PAGADO' ? 'pagoSi' : 'pagoNo').checked = true;
+    toggleTipoGuia();
+    toggleVehiculoTercero(false);
+    calcularTotalesFlete();
+
+    // Aspecto de "edición": otro título, sin "registrar otro" ni borrador
+    document.getElementById('tituloModalViaje').textContent = `Editar Guía ${numeroGuia(g)}`;
+    document.getElementById('subtituloModalViaje').textContent = 'Corrige los datos y guarda los cambios';
+    document.querySelector('#form-nuevo-viaje [data-accion="otro"]').classList.add('d-none');
+    document.getElementById('textoGuardarViaje').textContent = 'Guardar cambios';
+    document.getElementById('estado-borrador').innerHTML = '<i class="bi bi-pencil-square me-1"></i>Editando una guía registrada';
+    mostrarEstadoPdf('', 'muted');
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('nuevoViajeModal')).show();
+}
+
+// Al cerrar el formulario después de editar, vuelve a quedar listo para registrar
+function salirModoEdicion() {
+    if (!GUIA_EDITANDO) return;
+    GUIA_EDITANDO = null;
+    const form = document.getElementById('form-nuevo-viaje');
+    form.reset();
+    document.getElementById('fechaServicio').value = hoyLocal();
+    document.getElementById('tituloModalViaje').textContent = 'Registrar Servicio de Transporte';
+    document.getElementById('subtituloModalViaje').innerHTML = 'Sube la guía en PDF o completa los datos · los campos con <span class="text-warning">*</span> son obligatorios';
+    document.querySelector('#form-nuevo-viaje [data-accion="otro"]').classList.remove('d-none');
+    document.getElementById('textoGuardarViaje').textContent = 'Guardar servicio';
+    document.getElementById('estado-borrador').innerHTML = TEXTO_BORRADOR;
+    toggleTipoGuia();
+    toggleVehiculoTercero();
+    calcularTotalesFlete();
 }
 
 // Guía transportista: se pide su propio N° y el de la guía remitente pasa a ser opcional
@@ -747,6 +892,7 @@ function prepararFormularioViaje() {
         if (['estadoFacturacion', 'estadoPago', 'tipoGuia'].includes(e.target.name)) guardarBorradorViaje();
     });
     modal.addEventListener('show.bs.modal', restaurarBorradorViaje);
+    modal.addEventListener('hidden.bs.modal', salirModoEdicion);
 
     // Al entrar a un campo con "-", se selecciona para escribir encima
     form.addEventListener('focusin', (e) => {
@@ -779,6 +925,7 @@ function prepararFormularioViaje() {
 }
 
 function guardarBorradorViaje() {
+    if (GUIA_EDITANDO) return; // al editar no se usa el borrador
     const campos = {};
     CAMPOS_BORRADOR.forEach(id => { campos[id] = document.getElementById(id).value; });
     const borrador = {
@@ -798,6 +945,7 @@ function guardarBorradorViaje() {
 }
 
 function restaurarBorradorViaje() {
+    if (GUIA_EDITANDO) return; // los datos ya vienen de la guía que se edita
     let borrador = null;
     try { borrador = JSON.parse(localStorage.getItem(CLAVE_BORRADOR_VIAJE)); } catch (err) { borrador = null; }
 
@@ -885,8 +1033,10 @@ function filaGuia(g, admin) {
                         <option value="PAGADO" ${estPago === 'PAGADO' ? 'selected' : ''}>PAGADO</option>
                     </select>
                 </td>
-                <td class="td-acciones">
-                    ${admin ? `<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGuia(${g.id})"><i class="bi bi-trash"></i></button>` : '<span class="text-muted small">Sin permisos</span>'}
+                <td class="td-acciones text-nowrap">
+                    <button class="btn btn-sm btn-outline-secondary shadow-sm" onclick="verGuia(${g.id})" title="Ver detalle"><i class="bi bi-eye"></i></button>
+                    ${admin ? `<button class="btn btn-sm btn-outline-primary shadow-sm" onclick="abrirEditarGuia(${g.id})" title="Editar"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGuia(${g.id})" title="Eliminar"><i class="bi bi-trash"></i></button>` : ''}
                 </td>
             </tr>
         `;
