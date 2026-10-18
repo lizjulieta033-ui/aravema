@@ -8,6 +8,9 @@ if (window.pdfjsLib) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
+// RUC de Aravema Group: sirve para saber si una guía la emitió la empresa o un tercero
+const RUC_EMPRESA = '20615364984';
+
 // Categorías que usa el módulo de pagos (no se eligen a mano en Caja)
 const CATEGORIA_PAGO_TERCERO = "Pago Flete Tercero / Vehículo Externo";
 const CATEGORIA_ADELANTO_CHOFER = "Viáticos Conductor";
@@ -70,6 +73,7 @@ const COLOR_GRILLA = '#efebe0';
 let USUARIO = null; // perfil del usuario conectado (tabla perfiles)
 let GRAFICOS = {};       // instancias de Chart.js por id de canvas
 let FILTRO_GUIAS = 'TODAS';
+let FILTRO_TIPO_GUIA = 'TODAS'; // pestañas: TODAS / REMITENTE / TRANSPORTISTA
 let DB = { guias: [], gastos: [], asistencia: [], mantenimiento: [], choferes: [], perfiles: [], bitacora: [] };
 let PREFACTURAS = [];   // grupos por cliente pendientes de facturar
 let POR_COBRAR = [];    // grupos por cliente facturados sin cobrar
@@ -115,6 +119,17 @@ function hoyLocal() {
 
 function esGuiaTercero(g) {
     return (g.tipo_vehiculo || '').includes('Tercero');
+}
+
+function tipoGuia(g) {
+    return g.tipo_guia === 'TRANSPORTISTA' ? 'TRANSPORTISTA' : 'REMITENTE';
+}
+
+// Número principal de la guía: en una guía transportista es su propio N° (EG03-…)
+function numeroGuia(g) {
+    const valido = v => v && v !== '-';
+    if (tipoGuia(g) === 'TRANSPORTISTA' && valido(g.guia_transportista)) return g.guia_transportista;
+    return valido(g.guia_remitente) ? g.guia_remitente : (valido(g.guia_transportista) ? g.guia_transportista : '-');
 }
 
 function estadoFacturacion(g) {
@@ -175,6 +190,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('bitacoraMes').addEventListener('change', renderizarBitacora);
     document.getElementById('form-bitacora').addEventListener('submit', guardarBitacora);
     prepararFormularioViaje();
+    document.querySelectorAll('#pestanas-tipo-guia .nav-link').forEach(pestana => {
+        pestana.addEventListener('click', function () {
+            FILTRO_TIPO_GUIA = this.dataset.tipo;
+            document.querySelectorAll('#pestanas-tipo-guia .nav-link').forEach(p => p.classList.toggle('active', p === this));
+            renderizarGuias();
+        });
+    });
     document.querySelectorAll('#filtros-guia .chip-filtro').forEach(chip => {
         chip.addEventListener('click', function () {
             FILTRO_GUIAS = this.dataset.filtro;
@@ -513,6 +535,10 @@ function actualizarListasSugeridas() {
     document.getElementById('lista-terceros').innerHTML = [...terceros]
         .map(t => `<option value="${esc(t)}">`).join('');
 
+    const remitentes = new Set(DB.guias.map(g => g.remitente).filter(Boolean));
+    document.getElementById('lista-remitentes').innerHTML = [...remitentes]
+        .map(r => `<option value="${esc(r)}">`).join('');
+
     const clientes = new Set(DB.guias.map(g => g.destinatario).filter(d => d && d !== '-'));
     document.getElementById('lista-clientes').innerHTML = [...clientes]
         .map(c => `<option value="${esc(c)}">`).join('');
@@ -541,9 +567,14 @@ async function guardarViaje(e) {
         return;
     }
 
+    const tipo = document.querySelector('input[name="tipoGuia"]:checked').value;
     const guiaRemitente = document.getElementById('guiaRemitente').value.trim().toUpperCase() || '-';
-    const duplicada = DB.guias.find(g => guiaRemitente !== '-' && normNombre(g.guia_remitente) === normNombre(guiaRemitente));
-    if (duplicada && !confirm(`La guía ${guiaRemitente} ya está registrada (${duplicada.fecha}, ${duplicada.destinatario}).\n\n¿Registrarla de nuevo de todos modos?`)) {
+    const guiaTransportista = tipo === 'TRANSPORTISTA'
+        ? (document.getElementById('guiaTransportista').value.trim().toUpperCase() || '-')
+        : '-';
+
+    const duplicada = buscarGuiaRegistrada(tipo === 'TRANSPORTISTA' ? guiaTransportista : guiaRemitente);
+    if (duplicada && !confirm(`La guía ${numeroGuia(duplicada)} ya está registrada (${duplicada.fecha}, ${duplicada.destinatario}).\n\n¿Registrarla de nuevo de todos modos?`)) {
         return;
     }
 
@@ -556,8 +587,10 @@ async function guardarViaje(e) {
         tipo_vehiculo: tipoVehiculo,
         tercero: tercero,
         costo_tercero: costoTercero,
+        tipo_guia: tipo,
         guia_remitente: guiaRemitente,
-        guia_transportista: '-',
+        guia_transportista: guiaTransportista,
+        remitente: document.getElementById('remitenteNombre').value.trim() || null,
         conductor: conductor,
         jabas: parseInt(document.getElementById('numJabas').value) || 0,
         detalle: document.getElementById('detalleProducto').value.trim() || '-',
@@ -573,8 +606,18 @@ async function guardarViaje(e) {
         estado_pago: estadoPago
     };
 
-    const ok = await ejecutar(supabaseClient.from('guias').insert([nuevaGuia]), 'Error al guardar el servicio');
-    if (!ok) return;
+    let { error } = await supabaseClient.from('guias').insert([nuevaGuia]);
+    if (error && /tipo_guia|remitente/.test(error.message)) {
+        // Supabase todavía sin migracion_v4: se guarda igual, sin el tipo de guía ni el remitente
+        const { tipo_guia, remitente, ...sinCamposNuevos } = nuevaGuia;
+        ({ error } = await supabaseClient.from('guias').insert([sinCamposNuevos]));
+        if (!error) mostrarAlerta('Guía guardada, pero falta ejecutar migracion_v4_tipo_guia.sql en Supabase para guardar el tipo de guía y el remitente.', 'warning');
+    }
+    if (error) {
+        console.error(error);
+        mostrarError('Error al guardar el servicio: ' + error.message);
+        return;
+    }
 
     // Si el chofer es nuevo, sincronizarChoferes() (dentro de renderizarTodo) lo agrega a la lista de pagos
     const avisoChofer = '';
@@ -588,6 +631,8 @@ async function guardarViaje(e) {
             .map(id => [id, document.getElementById(id).value]);
         form.reset();
         conservar.forEach(([id, valor]) => { document.getElementById(id).value = valor; });
+        document.querySelector(`input[name="tipoGuia"][value="${tipo}"]`).checked = true; // mismo tipo de guía
+        toggleTipoGuia();
         toggleVehiculoTercero(false);
         calcularEstibaAutomatica();
         mostrarEstadoPdf('✔ Guardado. Sube la siguiente guía.', 'success');
@@ -596,13 +641,30 @@ async function guardarViaje(e) {
         form.reset();
         document.getElementById('fechaServicio').value = hoyLocal();
         mostrarEstadoPdf('', 'muted');
+        toggleTipoGuia();
         toggleVehiculoTercero();
         calcularTotalesFlete();
         cerrarModal('nuevoViajeModal');
     }
 
     await renderizarTodo();
-    mostrarAlerta(`¡Servicio ${nuevaGuia.guia_remitente} guardado con éxito!` + avisoChofer, 'success');
+    mostrarAlerta(`¡Guía ${tipo === 'TRANSPORTISTA' ? 'transportista' : 'remitente'} ${numeroGuia(nuevaGuia)} guardada con éxito!` + avisoChofer, 'success');
+}
+
+// Busca una guía ya registrada con ese número (sea N° remitente o N° transportista)
+function buscarGuiaRegistrada(numero) {
+    if (!numero || numero === '-') return null;
+    const clave = normNombre(numero);
+    return DB.guias.find(g => normNombre(g.guia_remitente) === clave || normNombre(g.guia_transportista) === clave) || null;
+}
+
+// Guía transportista: se pide su propio N° y el de la guía remitente pasa a ser opcional
+function toggleTipoGuia() {
+    const esTransportista = document.querySelector('input[name="tipoGuia"]:checked').value === 'TRANSPORTISTA';
+    document.getElementById('divGuiaTransportista').classList.toggle('d-none', !esTransportista);
+    document.getElementById('guiaTransportista').required = esTransportista;
+    document.getElementById('guiaRemitente').required = !esTransportista;
+    document.getElementById('guiaRemitenteObligatorio').classList.toggle('d-none', esTransportista);
 }
 
 function toggleVehiculoTercero(limpiar = true) {
@@ -663,7 +725,8 @@ function calcularTotalesFlete() {
 // -------------------------------------------------------------
 const CLAVE_BORRADOR_VIAJE = 'aravema_borrador_viaje';
 const CAMPOS_BORRADOR = ['fechaServicio', 'tipoVehiculo', 'nombreConductor', 'terceroNombre', 'costoTercero', 'guiaRemitente',
-    'detalleProducto', 'numJabas', 'pesoBruto', 'datosDestinatario', 'puntoPartida', 'puntoLlegada', 'tarifaSinIgv', 'montoEstiba'];
+    'guiaTransportista', 'remitenteNombre', 'detalleProducto', 'numJabas', 'pesoBruto', 'datosDestinatario', 'puntoPartida',
+    'puntoLlegada', 'tarifaSinIgv', 'montoEstiba'];
 const TEXTO_BORRADOR = '<i class="bi bi-cloud-check me-1"></i>Los datos se guardan como borrador mientras escribes';
 let temporizadorBorrador = null;
 
@@ -681,7 +744,7 @@ function prepararFormularioViaje() {
         // Cobrado implica facturado; volver a "No facturado" implica pendiente
         if (e.target.id === 'pagoSi') document.getElementById('factSi').checked = true;
         if (e.target.id === 'factNo') document.getElementById('pagoNo').checked = true;
-        if (e.target.name === 'estadoFacturacion' || e.target.name === 'estadoPago') guardarBorradorViaje();
+        if (['estadoFacturacion', 'estadoPago', 'tipoGuia'].includes(e.target.name)) guardarBorradorViaje();
     });
     modal.addEventListener('show.bs.modal', restaurarBorradorViaje);
 
@@ -716,6 +779,7 @@ function guardarBorradorViaje() {
         campos,
         fact: document.querySelector('input[name="estadoFacturacion"]:checked').value,
         pago: document.querySelector('input[name="estadoPago"]:checked').value,
+        tipo: document.querySelector('input[name="tipoGuia"]:checked').value,
         hora: Date.now()
     };
     try {
@@ -732,7 +796,8 @@ function restaurarBorradorViaje() {
     try { borrador = JSON.parse(localStorage.getItem(CLAVE_BORRADOR_VIAJE)); } catch (err) { borrador = null; }
 
     const estado = document.getElementById('estado-borrador');
-    const formVacio = !document.getElementById('guiaRemitente').value && !document.getElementById('datosDestinatario').value;
+    const formVacio = !document.getElementById('guiaRemitente').value && !document.getElementById('guiaTransportista').value
+        && !document.getElementById('datosDestinatario').value;
     if (!borrador || !formVacio) {
         if (formVacio) estado.innerHTML = TEXTO_BORRADOR;
         calcularTotalesFlete();
@@ -745,8 +810,11 @@ function restaurarBorradorViaje() {
     });
     const radioFact = document.querySelector(`input[name="estadoFacturacion"][value="${borrador.fact}"]`);
     const radioPago = document.querySelector(`input[name="estadoPago"][value="${borrador.pago}"]`);
+    const radioTipo = document.querySelector(`input[name="tipoGuia"][value="${borrador.tipo}"]`);
     if (radioFact) radioFact.checked = true;
     if (radioPago) radioPago.checked = true;
+    if (radioTipo) radioTipo.checked = true;
+    toggleTipoGuia();
     toggleVehiculoTercero(false);
     calcularTotalesFlete();
 
@@ -765,6 +833,7 @@ function descartarBorradorViaje(e) {
     borrarBorradorViaje();
     document.getElementById('form-nuevo-viaje').reset();
     document.getElementById('fechaServicio').value = hoyLocal();
+    toggleTipoGuia();
     toggleVehiculoTercero();
     calcularTotalesFlete();
     mostrarEstadoPdf('', 'muted');
@@ -783,10 +852,11 @@ function filaGuia(g, admin) {
                     <span class="badge rounded-pill ${esTercero ? 'bg-warning text-dark' : 'bg-primary'} mb-1"><i class="bi ${esTercero ? 'bi-truck-flatbed' : 'bi-truck'} me-1"></i>${esTercero ? 'Tercero' : 'C5T-850'}</span>
                     ${esTercero ? `<small class="d-block fw-semibold">${esc(g.tercero || '-')}</small><small class="text-danger fw-bold">Acordado: ${soles(g.costo_tercero)}</small>` : ''}
                 </td>
-                <td><span class="badge bg-light text-dark border d-block">Guía: ${esc(g.guia_remitente || '-')}</span></td>
+                <td>${celdaGuia(g)}</td>
                 <td class="fw-bold">${esc(g.conductor || '-')}</td>
                 <td>
                     <div class="fw-bold text-dark">${esc(g.destinatario || '-')}</div>
+                    ${g.remitente ? `<small class="d-block text-muted"><i class="bi bi-box-arrow-up-right me-1"></i>De: ${esc(g.remitente)}</small>` : ''}
                     <small class="text-muted d-block">${esc(g.punto_partida || '-')} ➔ ${esc(g.punto_llegada || '-')}</small>
                 </td>
                 <td>
@@ -816,8 +886,21 @@ function filaGuia(g, admin) {
         `;
 }
 
-// ¿La guía pasa el filtro (chip) y el texto buscado?
+// Celda "Guía": tipo + número; en la transportista también se ve la guía remitente relacionada
+function celdaGuia(g) {
+    const esTransp = tipoGuia(g) === 'TRANSPORTISTA';
+    const relacionada = esTransp && g.guia_remitente && g.guia_remitente !== '-'
+        ? `<small class="d-block text-muted mt-1">Rem: ${esc(g.guia_remitente)}</small>`
+        : '';
+    return `
+        <span class="badge rounded-pill ${esTransp ? 'tipo-guia-transportista' : 'tipo-guia-remitente'} mb-1">${esTransp ? 'TRANSPORTISTA' : 'REMITENTE'}</span>
+        <span class="d-block fw-semibold font-monospace small">${esc(numeroGuia(g))}</span>${relacionada}
+    `;
+}
+
+// ¿La guía pasa la pestaña (tipo), el filtro (chip) y el texto buscado?
 function guiaCoincide(g, texto) {
+    if (FILTRO_TIPO_GUIA !== 'TODAS' && tipoGuia(g) !== FILTRO_TIPO_GUIA) return false;
     const fact = estadoFacturacion(g) === 'FACTURADO';
     const pagado = estadoPagoGuia(g) === 'PAGADO';
     const pasaFiltro = {
@@ -830,7 +913,7 @@ function guiaCoincide(g, texto) {
     }[FILTRO_GUIAS];
     if (!pasaFiltro) return false;
     if (!texto) return true;
-    const campos = [g.guia_remitente, g.conductor, g.tercero, g.destinatario, g.detalle, g.punto_partida, g.punto_llegada, g.fecha];
+    const campos = [g.guia_remitente, g.guia_transportista, g.remitente, g.conductor, g.tercero, g.destinatario, g.detalle, g.punto_partida, g.punto_llegada, g.fecha];
     return normNombre(campos.join(' ')).includes(texto);
 }
 
@@ -853,6 +936,11 @@ function renderizarGuias() {
     const totalFiltrado = filtradas.reduce((acc, g) => acc + num(g.total_a_facturar), 0);
     document.getElementById('conteo-guias').textContent =
         `Mostrando ${filtradas.length} de ${DB.guias.length} servicios · Total: ${soles(totalFiltrado)}`;
+
+    // Contadores de las pestañas
+    document.getElementById('cnt-tipo-TODAS').textContent = DB.guias.length;
+    document.getElementById('cnt-tipo-REMITENTE').textContent = DB.guias.filter(g => tipoGuia(g) === 'REMITENTE').length;
+    document.getElementById('cnt-tipo-TRANSPORTISTA').textContent = DB.guias.filter(g => tipoGuia(g) === 'TRANSPORTISTA').length;
 }
 
 async function cambiarEstadoGuiaFactura(id, nuevoEstado) {
@@ -895,7 +983,9 @@ async function eliminarGuia(id) {
 
 // Campos que se llenan desde el PDF. Km, tarifa y tipo de vehículo quedan manuales.
 const CAMPOS_GUIA_PDF = {
-    guia: { id: 'guiaRemitente', nombre: 'N° de guía' },
+    guia: { id: 'guiaRemitente', nombre: 'N° guía remitente' },
+    guiaTransportista: { id: 'guiaTransportista', nombre: 'N° guía transportista', soloTransportista: true },
+    remitente: { id: 'remitenteNombre', nombre: 'Remitente' },
     fecha: { id: 'fechaServicio', nombre: 'Fecha' },
     conductor: { id: 'nombreConductor', nombre: 'Conductor' },
     jabas: { id: 'numJabas', nombre: 'N° jabas' },
@@ -930,17 +1020,18 @@ async function procesarGuiaRemitentePdf(e) {
 
         const faltantes = llenarFormularioGuia(datos);
         guardarBorradorViaje();
-        if (faltantes.length === Object.keys(CAMPOS_GUIA_PDF).length) {
+        const tipoLeido = datos.tipoGuia === 'TRANSPORTISTA' ? 'Guía TRANSPORTISTA' : 'Guía REMITENTE';
+        if (!datos.guia && !datos.guiaTransportista && !datos.destinatario) {
             mostrarEstadoPdf('No se reconoció el formato de la guía. Llena los datos manualmente.', 'danger');
         } else if (faltantes.length > 0) {
-            mostrarEstadoPdf(`Guía leída. No se encontró: ${faltantes.join(', ')}. Complétalo manualmente junto con Km, tarifa y vehículo.`, 'warning');
+            mostrarEstadoPdf(`${tipoLeido} leída. No se encontró: ${faltantes.join(', ')}. Complétalo a mano junto con el vehículo y la tarifa.`, 'warning');
         } else {
-            mostrarEstadoPdf('✔ Guía leída. Completa manualmente: tipo de vehículo, Km inicio/final y tarifa.', 'success');
+            mostrarEstadoPdf(`✔ ${tipoLeido} leída. Completa a mano: tipo de vehículo y tarifa.`, 'success');
         }
 
-        const duplicada = datos.guia && DB.guias.find(g => normNombre(g.guia_remitente) === normNombre(datos.guia));
+        const duplicada = buscarGuiaRegistrada(datos.guiaTransportista) || buscarGuiaRegistrada(datos.guia);
         if (duplicada) {
-            mostrarEstadoPdf(`⚠ La guía ${datos.guia} YA está registrada (${duplicada.fecha}, ${duplicada.destinatario}). Revisa antes de guardar.`, 'danger');
+            mostrarEstadoPdf(`⚠ La guía ${numeroGuia(duplicada)} YA está registrada (${duplicada.fecha}, ${duplicada.destinatario}). Revisa antes de guardar.`, 'danger');
         }
     } catch (err) {
         console.error(err);
@@ -983,12 +1074,56 @@ function leerGuiaRemision(items, nombreArchivo = '') {
     }
 
     const quitarDocumento = s => s.replace(/\s*-\s*(REGISTRO [ÚU]NICO|RUC|DOCUMENTO|DNI|CARNET|PASAPORTE).*$/i, '').trim();
+    const formatoGuia = (serie, numero) => `${serie.toUpperCase()}-${numero.padStart(8, '0')}`;
+    const reNumeroGuia = /([A-Z][A-Z0-9]{3})\s*-\s*(\d{1,8})\b/i;
+
+    // 0. TIPO DE GUÍA: el título dice "GUÍA DE REMISIÓN ELECTRÓNICA" y debajo REMITENTE o TRANSPORTISTA
+    const titulo = buscar(/GUIA DE REMISION ELECTRONICA/);
+    const cercaDelTitulo = it => !titulo || (Math.abs(it.x - titulo.x) < 120 && titulo.y - it.y >= 0 && titulo.y - it.y < 30);
+    const palabraTipo = items.find(it => /^(REMITENTE|TRANSPORTISTA)$/.test(norm(it.str)) && cercaDelTitulo(it));
+    if (palabraTipo) {
+        datos.tipoGuia = norm(palabraTipo.str);
+    } else if (/GUIA DE REMISION ELECTRONICA\s+TRANSPORTISTA/.test(norm(textoCompleto)) || buscar(/^DATOS DEL REMITENTE/)) {
+        datos.tipoGuia = 'TRANSPORTISTA';
+    } else {
+        datos.tipoGuia = 'REMITENTE';
+    }
+    const esTransportista = datos.tipoGuia === 'TRANSPORTISTA';
+
+    // Empresa que EMITE la guía: el nombre grande arriba a la izquierda, a la altura del RUC
+    const itemRuc = buscar(/^RUC N/);
+    const emisor = itemRuc && items
+        .filter(it => it !== itemRuc && it.x < itemRuc.x - 100 && Math.abs(it.y - itemRuc.y) < 15 && /[A-Z]{3}/i.test(it.str))
+        .sort((a, b) => a.x - b.x)[0];
+    const rucEmisor = itemRuc ? (itemRuc.str.match(/\d{11}/) || [''])[0] : '';
 
     // 1. NÚMERO DE GUÍA (ej. "N° EG07 - 00003545" → "EG07-00003545")
-    const reGuia = /([A-Z][A-Z0-9]{3})\s*-\s*(\d{1,8})\b/;
-    const itemGuia = items.find(it => /^N\S*\s*[A-Z][A-Z0-9]{3}\s*-\s*\d+$/i.test(it.str));
-    const matchGuia = (itemGuia && itemGuia.str.match(reGuia)) || nombreArchivo.match(/(EG\d{2})\s*-\s*(\d+)/i);
-    if (matchGuia) datos.guia = `${matchGuia[1].toUpperCase()}-${matchGuia[2].padStart(8, '0')}`;
+    const itemNumero = items.find(it => /^N\S*\s*[A-Z][A-Z0-9]{3}\s*-\s*\d+$/i.test(it.str));
+    const matchNumero = (itemNumero && itemNumero.str.match(reNumeroGuia)) || nombreArchivo.match(/(EG\d{2})\s*-\s*(\d+)/i);
+    if (esTransportista) {
+        if (matchNumero) datos.guiaTransportista = formatoGuia(matchNumero[1], matchNumero[2]);
+        // La guía remitente viene en "Documentos Relacionados: Guía de Remisión Remitente N° EG07 - 00000103 - RUC ..."
+        const relacionada = items.find(it => /GUIA DE REMISION REMITENTE/.test(norm(it.str)) && reNumeroGuia.test(it.str));
+        const matchRel = relacionada && relacionada.str.replace(/^.*?REMITENTE/i, '').match(reNumeroGuia);
+        if (matchRel) datos.guia = formatoGuia(matchRel[1], matchRel[2]);
+    } else if (matchNumero) {
+        datos.guia = formatoGuia(matchNumero[1], matchNumero[2]);
+    }
+
+    // REMITENTE: en la guía transportista está en "Datos del remitente"; en la remitente es quien la emite
+    const remitente = esTransportista ? quitarDocumento(valorDerecha(/^DATOS DEL REMITENTE/)) : (emisor ? emisor.str.trim() : '');
+    if (remitente) datos.remitente = remitente;
+
+    // TRANSPORTISTA de una guía remitente: si no es Aravema, se deja sugerido como tercero
+    if (!esTransportista) {
+        const etiquetaTransp = buscar(/^DATOS DEL TRANSPORTISTA/);
+        const itemTransp = etiquetaTransp && items
+            .filter(it => /REGISTRO [UÚ]NICO DE CONTRIBUYENTES/i.test(it.str) && it.y < etiquetaTransp.y && etiquetaTransp.y - it.y < 50)
+            .sort((a, b) => b.y - a.y)[0];
+        if (itemTransp && !itemTransp.str.includes(RUC_EMPRESA)) datos.tercero = quitarDocumento(itemTransp.str);
+    } else if (rucEmisor && rucEmisor !== RUC_EMPRESA && emisor) {
+        datos.tercero = emisor.str.trim();
+    }
 
     // 2. FECHA (inicio de traslado; si no, la de emisión) → formato yyyy-mm-dd
     const textoFecha = valorDerecha(/FECHA DE INICIO DE TRASLADO/) || valorDerecha(/FECHA Y HORA DE EMISION/);
@@ -1020,8 +1155,8 @@ function leerGuiaRemision(items, nombreArchivo = '') {
         datos.peso = /[A-Z]/i.test(peso) ? peso : `${peso} ${unidad}`;
     }
 
-    // 8. DESCRIPCIÓN DEL BIEN: columna bajo "Descripción Detallada"
-    let descripcion = '';
+    // 8. BIENES: columna bajo "Descripción Detallada". Puede haber varias filas (un producto por lote).
+    const filasBienes = [];
     const encabezado = buscar(/DESCRIPCION DETALLADA/);
     if (encabezado) {
         const cerca = it => Math.abs(it.y - encabezado.y) < 15;
@@ -1033,41 +1168,75 @@ function leerGuiaRemision(items, nombreArchivo = '') {
         const lineas = items
             .filter(it => it.y < encabezado.y - 12 && it.x >= xIni && it.x < xFin)
             .sort((a, b) => b.y - a.y);
-        // Solo las líneas seguidas (se corta al primer salto grande)
-        const bloque = [];
+        // Líneas seguidas (≤14 de separación) = misma fila; ≤24 = fila siguiente; más = fin de la tabla
+        let filaActual = null;
+        let anterior = null;
         for (const l of lineas) {
-            if (bloque.length && bloque[bloque.length - 1].y - l.y > 14) break;
-            bloque.push(l);
+            const salto = anterior ? anterior.y - l.y : 0;
+            if (anterior && salto > 24) break;
+            if (!filaActual || salto > 14) {
+                filaActual = [];
+                filasBienes.push(filaActual);
+            }
+            filaActual.push(l.str);
+            anterior = l;
         }
-        descripcion = bloque.map(l => l.str).join(' ').replace(/\s+/g, ' ').trim();
     }
+    const descripciones = filasBienes.map(f => f.join(' ').replace(/\s+/g, ' ').trim());
 
-    if (descripcion) {
-        // "ESPARRAGO VERDE FRESCO - 362 JABAS (...)" → "ESPARRAGO VERDE FRESCO"
-        const detalle = descripcion.split(/\s+-\s+/)[0].replace(/\s*\d+\s*(JABAS?|CAJAS?|BULTOS?|PAQUETES?)\b.*$/i, '').trim();
+    if (descripciones.length) {
+        // "ESPARRAGO VERDE FRESCO - 362 JABAS (...)" o "ESPARRAGO VERDE FRESCO- LOTE 01 ..." → "ESPARRAGO VERDE FRESCO"
+        const detalle = descripciones[0]
+            .split(/\s+-\s*|\s*-\s+/)[0]
+            .replace(/\s*\d+\s*(JABAS?|CAJAS?|BULTOS?|PAQUETES?)\b.*$/i, '')
+            .trim();
         if (detalle) datos.detalle = detalle;
     } else {
         const matchProducto = textoCompleto.match(/(ESPARRAGO[A-Z\s]*|AJ[IÍ][A-Z\s]*|PALTA[A-Z\s]*|UVA[A-Z\s]*|MANDARINA[A-Z\s]*|ARANDANO[A-Z\s]*)/i);
         if (matchProducto) datos.detalle = matchProducto[1].trim();
     }
 
-    // 9. JABAS: el primer número antes de "JABAS" (el total)
-    const matchJabas = (descripcion || textoCompleto).match(/(\d+)\s*(?:JABAS?|CAJAS?|BULTOS?|PAQUETES?)\b/i);
-    if (matchJabas) datos.jabas = matchJabas[1];
+    // 9. JABAS: 1) "TOTAL 36 JABAS" en observaciones; 2) suma de cada fila de bienes; 3) primer número antes de "JABAS"
+    const reJabas = /(\d+)\s*(?:JABAS?|CAJAS?|BULTOS?|PAQUETES?)\b/i;
+    const matchTotal = textoCompleto.match(/TOTAL\s*:?\s*(\d+)\s*(?:JABAS?|CAJAS?|BULTOS?)/i);
+    if (matchTotal) {
+        datos.jabas = matchTotal[1];
+    } else if (descripciones.length > 1) {
+        const suma = descripciones.reduce((acc, d) => acc + Number((d.match(reJabas) || [0, 0])[1]), 0);
+        if (suma > 0) datos.jabas = String(suma);
+    } else {
+        const matchJabas = (descripciones[0] || textoCompleto).match(reJabas);
+        if (matchJabas) datos.jabas = matchJabas[1];
+    }
 
     return datos;
 }
 
 // Llena el formulario y devuelve los nombres de los campos que no se encontraron
 function llenarFormularioGuia(datos) {
+    // Primero el tipo de guía: decide qué números se piden
+    const esTransportista = datos.tipoGuia === 'TRANSPORTISTA';
+    const radioTipo = document.getElementById(esTransportista ? 'tipoGuiaTra' : 'tipoGuiaRem');
+    if (radioTipo) {
+        radioTipo.checked = true;
+        toggleTipoGuia();
+    }
+
     const faltantes = [];
     for (const [clave, campo] of Object.entries(CAMPOS_GUIA_PDF)) {
         const input = document.getElementById(campo.id);
         if (!input) continue;
         // Se limpia para no dejar datos de una guía anterior
         input.value = datos[clave] || '';
-        if (!datos[clave]) faltantes.push(campo.nombre);
+        if (!datos[clave] && (!campo.soloTransportista || esTransportista)) faltantes.push(campo.nombre);
     }
+
+    // Transportista que figura en la guía (si no es Aravema): queda sugerido por si eliges "Vehículo Tercero"
+    const terceroInput = document.getElementById('terceroNombre');
+    const vehiculoTercero = document.getElementById('tipoVehiculo').value.includes('Tercero');
+    if (terceroInput && datos.tercero) terceroInput.value = datos.tercero;
+    else if (terceroInput && !vehiculoTercero) terceroInput.value = ''; // no dejar el de una guía anterior
+
     calcularEstibaAutomatica();
     return faltantes;
 }
@@ -1129,7 +1298,7 @@ function renderizarPrefacturacion() {
     document.getElementById('tabla-por-cobrar-body').innerHTML = POR_COBRAR.map((grupo, i) => `
         <tr>
             <td class="fw-bold text-dark">${esc(grupo.cliente)}</td>
-            <td>${grupo.guias.length} viajes <small class="text-muted d-block">${grupo.guias.map(g => esc(g.guia_remitente)).join(', ')}</small></td>
+            <td>${grupo.guias.length} viajes <small class="text-muted d-block">${grupo.guias.map(g => esc(numeroGuia(g))).join(', ')}</small></td>
             <td class="fw-bold text-warning-emphasis">${soles(grupo.total)}</td>
             <td class="td-acciones">
                 ${admin ? `<button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="marcarClienteCobrado(${i})">
@@ -1179,7 +1348,7 @@ function generarDocumentoPrefactura(indice) {
                 <td style="text-align: center; padding: 6px; border: 1px solid #000;">1.00</td>
                 <td style="text-align: center; padding: 6px; border: 1px solid #000;">UNIDAD</td>
                 <td style="padding: 6px; border: 1px solid #000;">
-                    SERVICIO TRASLADO DE ${esc((g.detalle || 'CARGA AGRÍCOLA').toUpperCase())}, DE ${esc((g.punto_partida || 'ICA').toUpperCase())} A ${esc((g.punto_llegada || 'DESTINO').toUpperCase())}, SEGÚN GUÍA DE REMISIÓN N° ${esc(g.guia_remitente || '-')}, EN EL VEHÍCULO CON PLACA: ${placa}
+                    SERVICIO TRASLADO DE ${esc((g.detalle || 'CARGA AGRÍCOLA').toUpperCase())}, DE ${esc((g.punto_partida || 'ICA').toUpperCase())} A ${esc((g.punto_llegada || 'DESTINO').toUpperCase())}, ${tipoGuia(g) === 'TRANSPORTISTA' ? 'SEGÚN GUÍA DE REMISIÓN TRANSPORTISTA N° ' + esc(numeroGuia(g)) + (g.guia_remitente && g.guia_remitente !== '-' ? ' Y GUÍA REMITENTE N° ' + esc(g.guia_remitente) : '') : 'SEGÚN GUÍA DE REMISIÓN REMITENTE N° ' + esc(numeroGuia(g))}, EN EL VEHÍCULO CON PLACA: ${placa}
                 </td>
                 <td style="text-align: right; padding: 6px; border: 1px solid #000;">${subVal.toFixed(2)}</td>
                 <td style="text-align: right; padding: 6px; border: 1px solid #000;">0.00</td>
@@ -1313,10 +1482,10 @@ function renderizarAsistencia() {
     DB.guias.filter(g => !esGuiaTercero(g) && enMes(g.fecha)).forEach(g => {
         const clave = normNombre(g.conductor) + '|' + g.fecha;
         if (porDia[clave]) {
-            porDia[clave].guias.push(g.guia_remitente);
+            porDia[clave].guias.push(numeroGuia(g));
             return;
         }
-        porDia[clave] = { fecha: g.fecha, conductor: g.conductor, estado: 'Laborado / Ruta', guias: [g.guia_remitente], obs: g.destinatario, manual: false };
+        porDia[clave] = { fecha: g.fecha, conductor: g.conductor, estado: 'Laborado / Ruta', guias: [numeroGuia(g)], obs: g.destinatario, manual: false };
         filas.push(porDia[clave]);
     });
     DB.asistencia.filter(a => enMes(a.fecha)).forEach(a => {
@@ -1358,7 +1527,7 @@ function renderizarAsistencia() {
                 <td class="fw-semibold">${esc(g.fecha)}</td>
                 <td class="fw-bold text-dark">${esc(g.conductor)}</td>
                 <td>${esc(g.tercero || '-')}</td>
-                <td><span class="badge bg-light text-dark border">${esc(g.guia_remitente)}</span></td>
+                <td>${celdaGuia(g)}</td>
                 <td><div>${esc(g.destinatario)}</div><small class="text-muted">${esc(g.punto_partida)} ➔ ${esc(g.punto_llegada)}</small></td>
             </tr>
         `).join('') || `<tr><td colspan="5" class="text-center text-muted">Sin viajes de terceros en este mes.</td></tr>`;

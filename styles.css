@@ -793,3 +793,29 @@ body.cargando #barra-carga {
 
 /* Choferes desactivados: visibles pero apagados */
 .chofer-inactivo > td { color: #9a9a8c !important; background: #f7f6f1 !important; }
+
+/* ---------------------------------------------------------------------
+   TIPO DE GUÍA (remitente / transportista)
+   --------------------------------------------------------------------- */
+.tipo-guia-remitente { background: var(--agro-verde-claro); color: var(--agro-verde-oscuro); border: 1px solid #c5ddb6; font-size: 0.68rem; }
+.tipo-guia-transportista { background: #e3f1f6; color: #1d6580; border: 1px solid #b6d9e6; font-size: 0.68rem; }
+
+.pestanas-guia { border-bottom: 2px solid var(--agro-borde); gap: 4px; }
+.pestanas-guia .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    color: var(--agro-tinta-suave);
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 0.6rem 0.6rem 0 0;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+.pestanas-guia .nav-link:hover { color: var(--agro-verde); background: var(--agro-verde-claro); }
+.pestanas-guia .nav-link.active {
+    color: var(--agro-verde);
+    background: transparent;
+    border-bottom-color: var(--agro-verde);
+}
+.pestanas-guia .nav-link .badge { background: #ece8dc; color: var(--agro-tinta-suave); margin-left: 4px; }
+.pestanas-guia .nav-link.active .badge { background: var(--agro-verde); color: #fff; }

@@ -273,7 +273,7 @@
                                             <tr>
                                                 <th>Fecha</th>
                                                 <th>Vehículo / Flota</th>
-                                                <th>Guía Remitente</th>
+                                                <th>Guía</th>
                                                 <th>Conductor</th>
                                                 <th>Destinatario / Ruta</th>
                                                 <th>Jabas / Peso</th>
@@ -300,6 +300,25 @@
                                 <i class="bi bi-plus-lg me-1"></i> Registrar Guía
                             </button>
                         </div>
+
+                        <!-- Pestañas por tipo de guía -->
+                        <ul class="nav nav-tabs pestanas-guia mb-3" id="pestanas-tipo-guia" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button type="button" class="nav-link active" data-tipo="TODAS" role="tab">
+                                    <i class="bi bi-collection me-1"></i>Todas <span class="badge rounded-pill" id="cnt-tipo-TODAS">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button type="button" class="nav-link" data-tipo="REMITENTE" role="tab">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>Guías Remitente <span class="badge rounded-pill" id="cnt-tipo-REMITENTE">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button type="button" class="nav-link" data-tipo="TRANSPORTISTA" role="tab">
+                                    <i class="bi bi-truck me-1"></i>Guías Transportista <span class="badge rounded-pill" id="cnt-tipo-TRANSPORTISTA">0</span>
+                                </button>
+                            </li>
+                        </ul>
 
                         <!-- Buscador y filtros -->
                         <div class="row g-2 align-items-center barra-filtros">
@@ -328,7 +347,7 @@
                                     <tr>
                                         <th>Fecha</th>
                                         <th>Vehículo / Flota</th>
-                                        <th>Guía Remitente</th>
+                                        <th>Guía</th>
                                         <th>Conductor</th>
                                         <th>Destinatario / Ruta</th>
                                         <th>Jabas / Peso</th>
@@ -775,6 +794,7 @@
     <datalist id="lista-choferes"></datalist>
     <datalist id="lista-terceros"></datalist>
     <datalist id="lista-clientes"></datalist>
+    <datalist id="lista-remitentes"></datalist>
 
     <!-- MODALES -->
     <!-- Modal Nuevo Viaje -->
@@ -862,7 +882,23 @@
                                     <div class="bloque-titulo"><span class="bloque-icono icono-dorado"><i class="bi bi-box-seam"></i></span> Guía y carga</div>
                                     <div class="row g-3">
                                         <div class="col-md-4">
-                                            <label class="form-label" for="guiaRemitente">N° Guía Remitente <span class="text-danger">*</span></label>
+                                            <label class="form-label">Tipo de guía <span class="text-danger">*</span></label>
+                                            <div class="segmentado" role="group" aria-label="Tipo de guía">
+                                                <input type="radio" class="btn-check" name="tipoGuia" id="tipoGuiaRem" value="REMITENTE" checked onchange="toggleTipoGuia()">
+                                                <label class="btn" for="tipoGuiaRem"><i class="bi bi-dot"></i>Remitente</label>
+                                                <input type="radio" class="btn-check" name="tipoGuia" id="tipoGuiaTra" value="TRANSPORTISTA" onchange="toggleTipoGuia()">
+                                                <label class="btn" for="tipoGuiaTra"><i class="bi bi-dot"></i>Transportista</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 d-none" id="divGuiaTransportista">
+                                            <label class="form-label" for="guiaTransportista">N° Guía Transportista <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">#</span>
+                                                <input type="text" class="form-control interactive-input" id="guiaTransportista" placeholder="EG03-00000020">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label" for="guiaRemitente">N° Guía Remitente <span class="text-danger" id="guiaRemitenteObligatorio">*</span></label>
                                             <div class="input-group">
                                                 <span class="input-group-text">#</span>
                                                 <input type="text" class="form-control interactive-input" id="guiaRemitente" placeholder="EG07-00003545" required>
@@ -875,7 +911,7 @@
                                                 <input type="text" class="form-control interactive-input" id="detalleProducto" placeholder="Espárrago verde fresco">
                                             </div>
                                         </div>
-                                        <div class="col-6 col-md-2">
+                                        <div class="col-6 col-md-2 ms-md-auto">
                                             <label class="form-label" for="numJabas">N° Jabas</label>
                                             <input type="number" class="form-control interactive-input" id="numJabas" placeholder="362">
                                         </div>
@@ -890,7 +926,14 @@
                                 <div class="bloque-form">
                                     <div class="bloque-titulo"><span class="bloque-icono icono-terracota"><i class="bi bi-geo-alt"></i></span> Cliente y ruta</div>
                                     <div class="row g-3">
-                                        <div class="col-12">
+                                        <div class="col-md-6">
+                                            <label class="form-label" for="remitenteNombre">Remitente <small class="fw-normal">(quien envía la carga)</small></label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-box-arrow-up-right"></i></span>
+                                                <input type="text" class="form-control interactive-input" id="remitenteNombre" list="lista-remitentes" placeholder="Ej. Hacienda El Monasterio SAC">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
                                             <label class="form-label" for="datosDestinatario">Destinatario / cliente <span class="text-danger">*</span></label>
                                             <div class="input-group">
                                                 <span class="input-group-text"><i class="bi bi-building"></i></span>
