@@ -590,7 +590,7 @@ async function guardarViaje(e) {
         tipo_guia: tipo,
         guia_remitente: guiaRemitente,
         guia_transportista: guiaTransportista,
-        remitente: document.getElementById('remitenteNombre').value.trim() || null,
+        remitente: document.getElementById('remitenteNombre').value.replace(/^\s*-\s*$/, '').trim() || null,
         conductor: conductor,
         jabas: parseInt(document.getElementById('numJabas').value) || 0,
         detalle: document.getElementById('detalleProducto').value.trim() || '-',
@@ -747,6 +747,12 @@ function prepararFormularioViaje() {
         if (['estadoFacturacion', 'estadoPago', 'tipoGuia'].includes(e.target.name)) guardarBorradorViaje();
     });
     modal.addEventListener('show.bs.modal', restaurarBorradorViaje);
+
+    // Al entrar a un campo con "-", se selecciona para escribir encima
+    form.addEventListener('focusin', (e) => {
+        // (con un pequeño retraso: al hacer clic, el navegador quitaría la selección)
+        if (e.target.value === '-' && typeof e.target.select === 'function') setTimeout(() => e.target.select(), 0);
+    });
 
     // Ctrl + Enter = Guardar servicio
     modal.addEventListener('keydown', (e) => {
@@ -1229,6 +1235,13 @@ function llenarFormularioGuia(datos) {
         // Se limpia para no dejar datos de una guía anterior
         input.value = datos[clave] || '';
         if (!datos[clave] && (!campo.soloTransportista || esTransportista)) faltantes.push(campo.nombre);
+    }
+
+    // Campos de texto opcionales que el PDF no trajo: se marcan con "-" (los obligatorios quedan vacíos para no olvidarlos)
+    for (const [clave, campo] of Object.entries(CAMPOS_GUIA_PDF)) {
+        const input = document.getElementById(campo.id);
+        const oculto = campo.soloTransportista && !esTransportista;
+        if (input && !datos[clave] && input.type === 'text' && !input.required && !oculto) input.value = '-';
     }
 
     // Transportista que figura en la guía (si no es Aravema): queda sugerido por si eliges "Vehículo Tercero"
