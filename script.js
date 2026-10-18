@@ -1243,6 +1243,8 @@ function llenarFormularioGuia(datos) {
         const oculto = campo.soloTransportista && !esTransportista;
         if (input && !datos[clave] && input.type === 'text' && !input.required && !oculto) input.value = '-';
     }
+    // Sin jabas en la guía (ej. guía transportista): 0
+    if (!datos.jabas) document.getElementById('numJabas').value = '0';
 
     // Transportista que figura en la guía (si no es Aravema): queda sugerido por si eliges "Vehículo Tercero"
     const terceroInput = document.getElementById('terceroNombre');
