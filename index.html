@@ -1126,7 +1126,12 @@
                                 <label class="btn" for="compFactura"><i class="bi bi-dot"></i>Factura</label>
                             </div>
                             <div class="mt-2 d-none" id="divNumeroComprobante">
-                                <input type="text" class="form-control interactive-input" id="pagoComprobanteNumero" placeholder="N° de comprobante (ej. E001-125)">
+                                <input type="text" class="form-control interactive-input mb-2" id="pagoComprobanteNumero" placeholder="N° de comprobante (ej. E001-125)">
+                                <label class="adjunto-comprobante" for="pagoComprobanteArchivo">
+                                    <i class="bi bi-paperclip"></i>
+                                    <span id="pagoComprobanteArchivoTexto">Adjuntar archivo del comprobante (PDF o foto, máx. 10 MB)</span>
+                                    <input type="file" class="d-none" id="pagoComprobanteArchivo" accept="application/pdf,image/jpeg,image/png,image/webp,image/heic" onchange="mostrarArchivoComprobante()">
+                                </label>
                             </div>
                         </div>
                         <div class="mb-3">

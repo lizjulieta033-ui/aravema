@@ -1907,13 +1907,81 @@ const TIPOS_COMPROBANTE = {
 function etiquetaComprobante(g) {
     const tipo = TIPOS_COMPROBANTE[g.comprobante_tipo] || TIPOS_COMPROBANTE.SIN;
     const numero = g.comprobante_numero ? `<small class="d-block font-monospace">${esc(g.comprobante_numero)}</small>` : '';
-    return `<span class="badge ${tipo.clase}">${tipo.nombre}</span>${numero}`;
+    return `<span class="badge ${tipo.clase}">${tipo.nombre}</span>${numero}${botonVerComprobante(g)}`;
 }
+
+// Botón 📎 para abrir el archivo adjunto de un pago
+function botonVerComprobante(g) {
+    return g.comprobante_archivo
+        ? `<button type="button" class="btn btn-sm btn-link p-0 d-block fw-semibold" onclick="verComprobante(${g.id})"><i class="bi bi-paperclip"></i> Ver archivo</button>`
+        : '';
+}
+
+const BUCKET_COMPROBANTES = 'comprobantes';
+const MAX_MB_COMPROBANTE = 10;
 
 function toggleNumeroComprobante() {
     const tipo = document.querySelector('input[name="pagoComprobante"]:checked').value;
     document.getElementById('divNumeroComprobante').classList.toggle('d-none', tipo === 'SIN');
-    if (tipo === 'SIN') document.getElementById('pagoComprobanteNumero').value = '';
+    if (tipo === 'SIN') {
+        document.getElementById('pagoComprobanteNumero').value = '';
+        limpiarArchivoComprobante();
+    }
+}
+
+function limpiarArchivoComprobante() {
+    document.getElementById('pagoComprobanteArchivo').value = '';
+    mostrarArchivoComprobante();
+}
+
+function mostrarArchivoComprobante() {
+    const archivo = document.getElementById('pagoComprobanteArchivo').files[0];
+    const texto = document.getElementById('pagoComprobanteArchivoTexto');
+    const caja = texto.closest('.adjunto-comprobante');
+    if (!archivo) {
+        texto.textContent = `Adjuntar archivo del comprobante (PDF o foto, máx. ${MAX_MB_COMPROBANTE} MB)`;
+        caja.classList.remove('con-archivo');
+        return;
+    }
+    if (archivo.size > MAX_MB_COMPROBANTE * 1024 * 1024) {
+        alert(`El archivo pesa más de ${MAX_MB_COMPROBANTE} MB. Sube un PDF más liviano o una foto.`);
+        limpiarArchivoComprobante();
+        return;
+    }
+    const peso = archivo.size < 1024 * 1024 ? `${Math.max(1, Math.round(archivo.size / 1024))} KB` : `${(archivo.size / 1024 / 1024).toFixed(1)} MB`;
+    texto.textContent = `${archivo.name} (${peso}) · clic para cambiar`;
+    caja.classList.add('con-archivo');
+}
+
+// Sube el archivo a Supabase Storage y devuelve su ruta (o null si falló)
+async function subirArchivoComprobante(archivo, fecha) {
+    const nombreLimpio = archivo.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_');
+    const ruta = `${(fecha || hoyLocal()).slice(0, 7)}/${Date.now()}-${nombreLimpio}`;
+    const { error } = await supabaseClient.storage.from(BUCKET_COMPROBANTES)
+        .upload(ruta, archivo, { contentType: archivo.type || undefined, upsert: false });
+    if (error) {
+        console.error(error);
+        const falta = /bucket|not found/i.test(error.message) ? ' (falta ejecutar migracion_v6_comprobante_archivo.sql en Supabase)' : '';
+        mostrarError(`No se pudo subir el archivo del comprobante: ${error.message}${falta}`);
+        return null;
+    }
+    return ruta;
+}
+
+// Abre el archivo con un enlace temporal (5 minutos): la carpeta es privada
+async function verComprobante(idGasto) {
+    const gasto = DB.gastos.find(g => g.id === idGasto);
+    if (!gasto || !gasto.comprobante_archivo) return;
+    const ventana = window.open('', '_blank'); // se abre ya, para que el navegador no la bloquee
+    const { data, error } = await supabaseClient.storage.from(BUCKET_COMPROBANTES)
+        .createSignedUrl(gasto.comprobante_archivo, 300);
+    if (error || !data?.signedUrl) {
+        if (ventana) ventana.close();
+        mostrarError('No se pudo abrir el comprobante: ' + (error?.message || 'archivo no encontrado'));
+        return;
+    }
+    if (ventana) ventana.location.href = data.signedUrl;
+    else window.location.href = data.signedUrl;
 }
 
 // Un chofer de un vehículo tercero no es chofer de Aravema: solo aparece en "Transportistas terceros".
@@ -1963,6 +2031,7 @@ function abrirPago(destino) {
     document.getElementById('pagoNota').value = '';
     document.getElementById('compSin').checked = true;
     toggleNumeroComprobante();
+    limpiarArchivoComprobante();
     mostrarSaldoPago();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('nuevoPagoModal')).show();
 }
@@ -2008,18 +2077,29 @@ async function guardarPago(e) {
         conductor: esTercero ? null : nombre,
         tercero: esTercero ? nombre : null,
         comprobante_tipo: comprobante,
-        comprobante_numero: numeroComprobante || null
+        comprobante_numero: numeroComprobante || null,
+        comprobante_archivo: null
     };
+
+    // Archivo adjunto (PDF o foto del RH / factura)
+    const archivo = comprobante === 'SIN' ? null : document.getElementById('pagoComprobanteArchivo').files[0];
+    if (archivo) {
+        registro.comprobante_archivo = await subirArchivoComprobante(archivo, registro.fecha);
+        if (!registro.comprobante_archivo) return; // ya se avisó el error; el pago no se guarda para que lo reintentes
+    }
 
     let { error } = await supabaseClient.from('gastos').insert([registro]);
     if (error && /comprobante/.test(error.message)) {
-        // Supabase todavía sin migracion_v5: se guarda igual (el comprobante queda escrito en el concepto)
-        const { comprobante_tipo, comprobante_numero, ...sinComprobante } = registro;
+        // Supabase todavía sin las columnas del comprobante: se guarda igual (queda escrito en el concepto)
+        const { comprobante_tipo, comprobante_numero, comprobante_archivo, ...sinComprobante } = registro;
         ({ error } = await supabaseClient.from('gastos').insert([sinComprobante]));
-        if (!error) mostrarAlerta('Pago guardado, pero falta ejecutar migracion_v5_comprobante.sql en Supabase para guardar el comprobante en su propia columna.', 'warning');
+        if (!error) mostrarAlerta('Pago guardado, pero falta ejecutar migracion_v6_comprobante_archivo.sql en Supabase para guardar el comprobante y su archivo.', 'warning');
     }
     if (error) {
         console.error(error);
+        if (registro.comprobante_archivo) {
+            await supabaseClient.storage.from(BUCKET_COMPROBANTES).remove([registro.comprobante_archivo]);
+        }
         mostrarError('No se pudo registrar el pago: ' + error.message);
         return;
     }
@@ -2154,7 +2234,7 @@ function renderizarGastos() {
             <tr>
                 <td class="fw-semibold">${esc(g.fecha || '-')}</td>
                 <td><span class="badge ${esIngreso ? 'bg-success' : 'bg-danger'}">${esc(g.tipo || 'Gasto')}</span></td>
-                <td class="fw-semibold text-dark">${esc(g.concepto)}</td>
+                <td class="fw-semibold text-dark">${esc(g.concepto)}${botonVerComprobante(g)}</td>
                 <td><span class="badge bg-secondary">${esc(g.categoria || 'Gastos Administrativos')}</span></td>
                 <td class="fw-bold ${esIngreso ? 'text-success' : 'text-danger'}">${esIngreso ? '+' : '-'} ${soles(monto)}</td>
                 <td class="td-acciones"><button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGasto(${g.id})"><i class="bi bi-trash"></i></button></td>
@@ -2174,8 +2254,13 @@ async function eliminarGasto(id) {
     const aviso = gasto && (gasto.conductor || gasto.tercero)
         ? `\n\nEs un pago a ${gasto.conductor || gasto.tercero}: su saldo pendiente volverá a subir.`
         : '';
-    if (!confirm('¿Eliminar este movimiento de caja?' + aviso)) return;
-    await ejecutar(supabaseClient.from('gastos').delete().eq('id', id), 'No se pudo eliminar');
+    const avisoArchivo = gasto?.comprobante_archivo ? '\n\nTambién se borrará el archivo del comprobante adjunto.' : '';
+    if (!confirm('¿Eliminar este movimiento de caja?' + aviso + avisoArchivo)) return;
+    const ok = await ejecutar(supabaseClient.from('gastos').delete().eq('id', id), 'No se pudo eliminar');
+    if (ok && gasto?.comprobante_archivo) {
+        const { error } = await supabaseClient.storage.from(BUCKET_COMPROBANTES).remove([gasto.comprobante_archivo]);
+        if (error) console.error('No se pudo borrar el archivo del comprobante', error);
+    }
     await renderizarTodo();
 }
 

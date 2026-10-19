@@ -840,3 +840,28 @@ body.cargando #barra-carga {
 }
 .dato-guia small { display: block; color: var(--agro-tinta-suave); font-weight: 700; font-size: 0.72rem; }
 .dato-guia div { font-weight: 600; word-break: break-word; }
+
+/* Adjuntar archivo del comprobante de pago */
+.adjunto-comprobante {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px dashed #b9d4a8;
+    border-radius: 0.7rem;
+    background: var(--agro-verde-claro);
+    color: var(--agro-tinta-suave);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.adjunto-comprobante:hover { border-color: var(--agro-verde-hoja); }
+.adjunto-comprobante i { font-size: 1.2rem; color: var(--agro-verde); }
+.adjunto-comprobante.con-archivo {
+    border-style: solid;
+    border-color: var(--agro-verde-hoja);
+    color: var(--agro-verde-oscuro);
+    background: #fff;
+}
