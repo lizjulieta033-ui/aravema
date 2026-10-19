@@ -2184,29 +2184,109 @@ async function guardarConfigChofer(e) {
 // -------------------------------------------------------------
 // CONTABILIDAD / CAJA
 // -------------------------------------------------------------
-function actualizarCategoriasMovimiento() {
+// -------------------------------------------------------------
+// REGISTRO EN CAJA: hasta 3 conceptos en un solo envío
+// -------------------------------------------------------------
+const MAX_CONCEPTOS_CAJA = 3;
+
+function opcionesCategoriaMovimiento() {
     const tipo = document.getElementById('tipoMovimiento').value;
     const lista = (tipo === 'Ingreso') ? CATEGORIAS_INGRESOS : CATEGORIAS_GASTOS;
-    document.getElementById('categoriaGasto').innerHTML = lista.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    return lista.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+}
+
+// Al cambiar Gasto/Ingreso se actualizan las categorías de todas las líneas
+function actualizarCategoriasMovimiento() {
+    const contenedor = document.getElementById('lineas-movimiento');
+    if (!contenedor.children.length) agregarLineaMovimiento();
+    const opciones = opcionesCategoriaMovimiento();
+    contenedor.querySelectorAll('.categoria-mov').forEach(sel => { sel.innerHTML = opciones; });
+    actualizarResumenMovimientos();
+}
+
+function agregarLineaMovimiento() {
+    const contenedor = document.getElementById('lineas-movimiento');
+    if (contenedor.children.length >= MAX_CONCEPTOS_CAJA) return;
+    const esPrimera = contenedor.children.length === 0;
+
+    const linea = document.createElement('div');
+    linea.className = 'row g-2 align-items-end linea-movimiento';
+    linea.innerHTML = `
+        <div class="col-md-5">
+            ${esPrimera ? '<label class="form-label fw-semibold"><i class="bi bi-file-text me-1"></i> Concepto / Descripción</label>' : ''}
+            <div class="input-group">
+                <span class="input-group-text numero-linea"></span>
+                <input type="text" class="form-control interactive-input concepto-mov" placeholder="Ej. Pago SUNAT" required>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            ${esPrimera ? '<label class="form-label fw-semibold"><i class="bi bi-currency-dollar me-1"></i> Monto (S/)</label>' : ''}
+            <input type="number" step="0.01" min="0.01" class="form-control interactive-input monto-mov" placeholder="0.00" required oninput="actualizarResumenMovimientos()">
+        </div>
+        <div class="col-6 col-md-4">
+            ${esPrimera ? '<label class="form-label fw-semibold"><i class="bi bi-tag me-1"></i> Categoría</label>' : ''}
+            <select class="form-select interactive-input categoria-mov">${opcionesCategoriaMovimiento()}</select>
+        </div>
+        <div class="col-md-1 text-end">
+            ${esPrimera ? '' : '<button type="button" class="btn btn-outline-danger w-100" title="Quitar este concepto" onclick="quitarLineaMovimiento(this)"><i class="bi bi-x-lg"></i></button>'}
+        </div>
+    `;
+    contenedor.appendChild(linea);
+    actualizarResumenMovimientos();
+    if (!esPrimera) linea.querySelector('.concepto-mov').focus();
+}
+
+function quitarLineaMovimiento(boton) {
+    boton.closest('.linea-movimiento').remove();
+    actualizarResumenMovimientos();
+}
+
+// Numera las líneas, limita a 3 y muestra el total
+function actualizarResumenMovimientos() {
+    const lineas = [...document.querySelectorAll('#lineas-movimiento .linea-movimiento')];
+    lineas.forEach((l, i) => { l.querySelector('.numero-linea').textContent = i + 1; });
+
+    const boton = document.getElementById('btnAgregarConcepto');
+    boton.disabled = lineas.length >= MAX_CONCEPTOS_CAJA;
+    document.getElementById('contadorConceptos').textContent = `(${lineas.length}/${MAX_CONCEPTOS_CAJA})`;
+
+    const total = lineas.reduce((acc, l) => acc + num(l.querySelector('.monto-mov').value), 0);
+    document.getElementById('totalMovimientos').textContent = lineas.length > 1 && total > 0 ? `Total: ${soles(total)}` : '';
+}
+
+// Deja el formulario con una sola línea vacía
+function reiniciarFormularioCaja() {
+    document.getElementById('form-registrar-gasto').reset();
+    document.getElementById('fechaGasto').value = hoyLocal();
+    document.getElementById('lineas-movimiento').innerHTML = '';
+    agregarLineaMovimiento();
 }
 
 async function guardarMovimientoCaja(e) {
     e.preventDefault();
-    const nuevoGasto = {
-        tipo: document.getElementById('tipoMovimiento').value,
-        fecha: document.getElementById('fechaGasto').value,
-        concepto: document.getElementById('conceptoGasto').value.trim(),
-        monto: num(document.getElementById('montoGasto').value),
-        categoria: document.getElementById('categoriaGasto').value
-    };
-    const ok = await ejecutar(supabaseClient.from('gastos').insert([nuevoGasto]), 'No se pudo registrar el movimiento');
+    const tipo = document.getElementById('tipoMovimiento').value;
+    const fecha = document.getElementById('fechaGasto').value;
+
+    // Cada línea es un movimiento independiente
+    const movimientos = [...document.querySelectorAll('#lineas-movimiento .linea-movimiento')].map(l => ({
+        tipo,
+        fecha,
+        concepto: l.querySelector('.concepto-mov').value.trim(),
+        monto: num(l.querySelector('.monto-mov').value),
+        categoria: l.querySelector('.categoria-mov').value
+    }));
+    if (!movimientos.length) return;
+
+    // Se guardan todos juntos: si uno falla, no se guarda ninguno
+    const ok = await ejecutar(supabaseClient.from('gastos').insert(movimientos), 'No se pudo registrar el movimiento');
     if (!ok) return;
 
-    e.target.reset();
-    document.getElementById('fechaGasto').value = hoyLocal();
-    actualizarCategoriasMovimiento();
+    reiniciarFormularioCaja();
     await renderizarTodo();
-    mostrarAlerta('¡Movimiento contable registrado con éxito!', 'success');
+    const total = movimientos.reduce((acc, m) => acc + m.monto, 0);
+    mostrarAlerta(movimientos.length === 1
+        ? '¡Movimiento contable registrado con éxito!'
+        : `¡${movimientos.length} movimientos registrados por ${soles(total)}!`, 'success');
 }
 
 function totalesFletes() {

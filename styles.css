@@ -865,3 +865,16 @@ body.cargando #barra-carga {
     color: var(--agro-verde-oscuro);
     background: #fff;
 }
+
+/* Caja: varios conceptos en un registro */
+.linea-movimiento + .linea-movimiento { margin-top: 8px; animation: aparecerArriba 0.2s ease-out both; }
+.linea-movimiento .numero-linea {
+    min-width: 34px;
+    justify-content: center;
+    font-weight: 800;
+    color: var(--agro-verde);
+    background: var(--agro-verde-claro);
+}
+
+/* Fechas del historial de Caja en una sola línea */
+#tabla-gastos-body td:first-child, #tabla-historial-pagos-body td:first-child { white-space: nowrap; }
