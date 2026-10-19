@@ -2391,14 +2391,18 @@ function renderizarGraficos() {
     const guiasDelMes = m => DB.guias.filter(g => String(g.fecha || '').startsWith(m));
     const totales = meses.map(m => guiasDelMes(m).reduce((acc, g) => acc + num(g.total_a_facturar), 0));
     const viajes = meses.map(m => guiasDelMes(m).length);
-    const etiquetasMes = meses.map(m => {
-        const texto = new Date(m + '-15T12:00:00').toLocaleDateString('es-PE', { month: 'short', year: '2-digit' });
+    // Eje: "May 2026"; al pasar el mouse: "Mayo 2026" (el año completo, para no confundirlo con un día)
+    const textoMes = (m, formato) => {
+        const texto = new Date(m + '-15T12:00:00').toLocaleDateString('es-PE', { month: formato }).replace('.', '');
         return texto.charAt(0).toUpperCase() + texto.slice(1);
-    });
+    };
+    const etiquetasMes = meses.map(m => `${textoMes(m, 'short')} ${m.slice(0, 4)}`);
+    const mesesCompletos = meses.map(m => `${textoMes(m, 'long')} ${m.slice(0, 4)}`);
 
     dibujarBarras('grafico-fletes', etiquetasMes, totales, {
         color: COLOR_GRAFICO_FLETES,
         hover: COLOR_GRAFICO_FLETES_HOVER,
+        titulo: i => mesesCompletos[i],
         detalle: i => `${viajes[i]} ${viajes[i] === 1 ? 'viaje' : 'viajes'}`
     });
     document.getElementById('grafico-fletes-total').textContent = `${soles(totales.reduce((a, b) => a + b, 0))} en 6 meses`;
@@ -2479,6 +2483,7 @@ function dibujarBarras(idCanvas, etiquetas, valores, opciones) {
                     displayColors: false,
                     callbacks: {
                         label: c => soles(c.parsed[ejeValor]),
+                        title: items => items.length && opciones.titulo ? opciones.titulo(items[0].dataIndex) : (items[0]?.label || ''),
                         afterLabel: c => opciones.detalle ? opciones.detalle(c.dataIndex) : ''
                     }
                 }
