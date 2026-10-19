@@ -528,7 +528,7 @@ async function renderizarTodo() {
 }
 
 function actualizarListasSugeridas() {
-    document.getElementById('lista-choferes').innerHTML = DB.choferes
+    document.getElementById('lista-choferes').innerHTML = choferesDeLaEmpresa()
         .filter(c => c.activo)
         .map(c => `<option value="${esc(c.nombre)}">`).join('');
 
@@ -1801,7 +1801,8 @@ function renderizarPagos() {
     // --- Choferes de la empresa ---
     const dias = diasLaboradosPorChofer();
     // Activos primero; los desactivados al final en gris, para poder reactivarlos con ⚙
-    const choferesOrdenados = [...DB.choferes.filter(c => c.activo), ...DB.choferes.filter(c => !c.activo)];
+    const empresa = choferesDeLaEmpresa();
+    const choferesOrdenados = [...empresa.filter(c => c.activo), ...empresa.filter(c => !c.activo)];
     document.getElementById('tabla-choferes-body').innerHTML = choferesOrdenados.map(c => {
         const clave = normNombre(c.nombre);
         const fechas = [...(dias[clave] || [])];
@@ -1889,10 +1890,46 @@ function renderizarPagos() {
                 <td class="fw-semibold">${esc(g.fecha)}</td>
                 <td><span class="badge ${g.conductor ? 'bg-primary' : 'bg-warning text-dark'} me-1">${g.conductor ? 'Chofer' : 'Tercero'}</span>${esc(g.conductor || g.tercero)}</td>
                 <td class="small">${esc(g.concepto)}</td>
+                <td>${etiquetaComprobante(g)}</td>
                 <td class="fw-bold text-danger">${soles(g.monto)}</td>
                 <td class="td-acciones"><button class="btn btn-sm btn-outline-danger shadow-sm" onclick="eliminarGasto(${g.id})"><i class="bi bi-trash"></i></button></td>
             </tr>
-        `).join('') || `<tr><td colspan="5" class="text-center text-muted">Sin pagos registrados en este período.</td></tr>`;
+        `).join('') || `<tr><td colspan="6" class="text-center text-muted">Sin pagos registrados en este período.</td></tr>`;
+}
+
+// Comprobante de un pago (Recibo por Honorarios / Factura / Sin comprobante)
+const TIPOS_COMPROBANTE = {
+    SIN: { nombre: 'Sin comprobante', corto: 'Sin comprobante', clase: 'bg-light text-muted border' },
+    RECIBO_HONORARIOS: { nombre: 'Recibo por Honorarios', corto: 'RH', clase: 'bg-info text-dark' },
+    FACTURA: { nombre: 'Factura', corto: 'Factura', clase: 'bg-primary' }
+};
+
+function etiquetaComprobante(g) {
+    const tipo = TIPOS_COMPROBANTE[g.comprobante_tipo] || TIPOS_COMPROBANTE.SIN;
+    const numero = g.comprobante_numero ? `<small class="d-block font-monospace">${esc(g.comprobante_numero)}</small>` : '';
+    return `<span class="badge ${tipo.clase}">${tipo.nombre}</span>${numero}`;
+}
+
+function toggleNumeroComprobante() {
+    const tipo = document.querySelector('input[name="pagoComprobante"]:checked').value;
+    document.getElementById('divNumeroComprobante').classList.toggle('d-none', tipo === 'SIN');
+    if (tipo === 'SIN') document.getElementById('pagoComprobanteNumero').value = '';
+}
+
+// Un chofer de un vehículo tercero no es chofer de Aravema: solo aparece en "Transportistas terceros".
+// Se oculta de la empresa si no tiene guías propias, ni asistencia, ni pagos como chofer,
+// y su nombre figura en guías de terceros (pasa si una guía se registró como propia y luego se corrigió).
+function esChoferSoloDeTerceros(c) {
+    const clave = normNombre(c.nombre);
+    const mismo = v => normNombre(v) === clave;
+    if (DB.guias.some(g => !esGuiaTercero(g) && mismo(g.conductor))) return false;
+    if (DB.asistencia.some(a => mismo(a.conductor))) return false;
+    if (DB.gastos.some(g => g.conductor && mismo(g.conductor))) return false;
+    return DB.guias.some(g => esGuiaTercero(g) && (mismo(g.conductor) || mismo(g.tercero)));
+}
+
+function choferesDeLaEmpresa() {
+    return DB.choferes.filter(c => !esChoferSoloDeTerceros(c));
 }
 
 function etiquetaSaldo(saldo) {
@@ -1903,7 +1940,7 @@ function etiquetaSaldo(saldo) {
 
 function abrirPago(destino) {
     const select = document.getElementById('pagoA');
-    const choferes = DB.choferes.filter(c => c.activo).map(c => `CHOFER|${c.nombre}`);
+    const choferes = choferesDeLaEmpresa().filter(c => c.activo).map(c => `CHOFER|${c.nombre}`);
     const terceros = Object.keys(SALDOS_PAGO).filter(k => k.startsWith('TERCERO|'));
     const opcion = valor => `<option value="${esc(valor)}">${esc(valor.split('|')[1])}</option>`;
     const vacio = texto => `<option value="" disabled>(${texto})</option>`;
@@ -1924,6 +1961,8 @@ function abrirPago(destino) {
     document.getElementById('pagoTipo').value = 'PAGO';
     document.getElementById('pagoMonto').value = '';
     document.getElementById('pagoNota').value = '';
+    document.getElementById('compSin').checked = true;
+    toggleNumeroComprobante();
     mostrarSaldoPago();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('nuevoPagoModal')).show();
 }
@@ -1953,18 +1992,37 @@ async function guardarPago(e) {
     const nota = document.getElementById('pagoNota').value.trim();
     const esTercero = destino === 'TERCERO';
 
+    const comprobante = document.querySelector('input[name="pagoComprobante"]:checked').value;
+    const numeroComprobante = comprobante === 'SIN' ? '' : document.getElementById('pagoComprobanteNumero').value.trim().toUpperCase();
+    // El comprobante también va en el concepto, así se ve en Caja
+    const textoComprobante = comprobante === 'SIN'
+        ? ''
+        : ` · ${TIPOS_COMPROBANTE[comprobante].corto}${numeroComprobante ? ' ' + numeroComprobante : ''}`;
+
     const registro = {
         tipo: 'Gasto',
         fecha: document.getElementById('pagoFecha').value,
         monto: num(document.getElementById('pagoMonto').value),
         categoria: esTercero ? CATEGORIA_PAGO_TERCERO : (esAdelanto ? CATEGORIA_ADELANTO_CHOFER : CATEGORIA_PLANILLA_CHOFER),
-        concepto: `${esAdelanto ? 'Adelanto' : 'Pago'} ${esTercero ? 'transportista' : 'chofer'} - ${nombre}${nota ? ' (' + nota + ')' : ''}`,
+        concepto: `${esAdelanto ? 'Adelanto' : 'Pago'} ${esTercero ? 'transportista' : 'chofer'} - ${nombre}${nota ? ' (' + nota + ')' : ''}${textoComprobante}`,
         conductor: esTercero ? null : nombre,
-        tercero: esTercero ? nombre : null
+        tercero: esTercero ? nombre : null,
+        comprobante_tipo: comprobante,
+        comprobante_numero: numeroComprobante || null
     };
 
-    const ok = await ejecutar(supabaseClient.from('gastos').insert([registro]), 'No se pudo registrar el pago');
-    if (!ok) return;
+    let { error } = await supabaseClient.from('gastos').insert([registro]);
+    if (error && /comprobante/.test(error.message)) {
+        // Supabase todavía sin migracion_v5: se guarda igual (el comprobante queda escrito en el concepto)
+        const { comprobante_tipo, comprobante_numero, ...sinComprobante } = registro;
+        ({ error } = await supabaseClient.from('gastos').insert([sinComprobante]));
+        if (!error) mostrarAlerta('Pago guardado, pero falta ejecutar migracion_v5_comprobante.sql en Supabase para guardar el comprobante en su propia columna.', 'warning');
+    }
+    if (error) {
+        console.error(error);
+        mostrarError('No se pudo registrar el pago: ' + error.message);
+        return;
+    }
 
     cerrarModal('nuevoPagoModal');
     await renderizarTodo();

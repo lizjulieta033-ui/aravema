@@ -493,6 +493,7 @@
                                         <th>Fecha</th>
                                         <th>A quién</th>
                                         <th>Concepto</th>
+                                        <th>Comprobante</th>
                                         <th>Monto</th>
                                         <th class="th-acciones">Acciones</th>
                                     </tr>
@@ -1113,6 +1114,20 @@
                         <div class="mb-3">
                             <label class="form-label fw-semibold"><i class="bi bi-currency-dollar text-success me-1"></i> Monto (S/)</label>
                             <input type="number" step="0.01" min="0.01" class="form-control interactive-input" id="pagoMonto" placeholder="Ej. 200.00" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold"><i class="bi bi-receipt text-success me-1"></i> Comprobante de pago</label>
+                            <div class="segmentado" role="group" aria-label="Comprobante de pago">
+                                <input type="radio" class="btn-check" name="pagoComprobante" id="compSin" value="SIN" checked onchange="toggleNumeroComprobante()">
+                                <label class="btn" for="compSin"><i class="bi bi-dot"></i>Sin comprobante</label>
+                                <input type="radio" class="btn-check" name="pagoComprobante" id="compRH" value="RECIBO_HONORARIOS" onchange="toggleNumeroComprobante()">
+                                <label class="btn" for="compRH"><i class="bi bi-dot"></i>Recibo por Honorarios</label>
+                                <input type="radio" class="btn-check" name="pagoComprobante" id="compFactura" value="FACTURA" onchange="toggleNumeroComprobante()">
+                                <label class="btn" for="compFactura"><i class="bi bi-dot"></i>Factura</label>
+                            </div>
+                            <div class="mt-2 d-none" id="divNumeroComprobante">
+                                <input type="text" class="form-control interactive-input" id="pagoComprobanteNumero" placeholder="N° de comprobante (ej. E001-125)">
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold"><i class="bi bi-journal-text text-success me-1"></i> Nota (opcional)</label>
