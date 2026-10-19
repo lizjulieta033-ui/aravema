@@ -2496,6 +2496,28 @@ function revisarBitacora(b) {
     return { clase: 'bg-success', texto: 'Correcto', icono: 'bi-check-circle-fill' };
 }
 
+// Combustible y peajes de un día, tomados de Contabilidad / Caja por fecha y categoría
+const CATEGORIA_COMBUSTIBLE = 'Combustible C5T-850';
+const CATEGORIA_PEAJES = 'Peajes';
+
+function costosDelDia(fecha) {
+    let combustible = 0, peajes = 0;
+    DB.gastos.forEach(g => {
+        if (g.tipo === 'Ingreso' || g.fecha !== fecha) return;
+        if (g.categoria === CATEGORIA_COMBUSTIBLE) combustible += num(g.monto);
+        else if (g.categoria === CATEGORIA_PEAJES) peajes += num(g.monto);
+    });
+    return { combustible, peajes, total: combustible + peajes };
+}
+
+// Celda "Combustible + Peajes" (los gastos solo los ve el administrador)
+function celdaCostosDia(costos) {
+    if (!esAdmin()) return '<span class="text-muted small">Solo administrador</span>';
+    if (!costos.total) return '<span class="text-muted small">Sin gastos registrados</span>';
+    return `<span class="fw-semibold">${soles(costos.total)}</span>
+        <small class="d-block text-muted"><i class="bi bi-fuel-pump me-1"></i>${soles(costos.combustible)} · <i class="bi bi-sign-turn-right me-1"></i>${soles(costos.peajes)}</small>`;
+}
+
 function renderizarBitacora() {
     const admin = esAdmin();
     const mes = document.getElementById('bitacoraMes').value;
@@ -2508,11 +2530,11 @@ function renderizarBitacora() {
         .forEach(fecha => { if (!fechasRegistradas.has(fecha)) filas.push({ fecha, b: null }); });
     filas.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
 
-    let kmMes = 0, diasCompletos = 0, fletesConKm = 0;
+    let kmMes = 0, diasCompletos = 0, costosConKm = 0;
 
     document.getElementById('tabla-bitacora-body').innerHTML = filas.map(({ fecha, b }) => {
         const guias = guiasPropiasDelDia(fecha);
-        const fletes = guias.reduce((acc, g) => acc + num(g.subtotal || g.tarifa_sin_igv), 0);
+        const costos = costosDelDia(fecha);
         const viajes = guias.length
             ? `<span class="fw-bold">${guias.length} ${guias.length === 1 ? 'viaje' : 'viajes'}</span><small class="d-block text-muted">${guias.map(g => esc(g.destinatario)).join(', ')}</small>`
             : '<span class="text-muted">Sin guías</span>';
@@ -2524,7 +2546,7 @@ function renderizarBitacora() {
                     <td>${esc(guias[0]?.conductor || '-')}</td>
                     <td colspan="3" class="text-warning-emphasis fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Hubo viajes pero no se anotó el kilometraje</td>
                     <td>${viajes}</td>
-                    <td>${soles(fletes)}</td>
+                    <td>${celdaCostosDia(costos)}</td>
                     <td class="text-muted">—</td>
                     <td><span class="badge bg-warning text-dark">Sin registro</span></td>
                     <td class="td-acciones"><button class="btn btn-sm btn-primary" onclick="abrirBitacora(null, ${jsArg(fecha)})"><i class="bi bi-plus-lg"></i> Registrar</button></td>
@@ -2536,10 +2558,13 @@ function renderizarBitacora() {
         if (recorrido !== null) {
             kmMes += recorrido;
             diasCompletos++;
-            fletesConKm += fletes;
+            costosConKm += costos.total;
         }
         const revision = revisarBitacora(b);
-        const solesKm = recorrido > 0 && fletes > 0 ? soles(fletes / recorrido) : '—';
+        // Costo por km = (combustible + peajes del día) ÷ km recorridos ese día
+        const costoKm = !admin ? '<span class="text-muted small">—</span>'
+            : recorrido > 0 && costos.total > 0 ? soles(costos.total / recorrido)
+            : '<span class="text-muted">—</span>';
 
         return `
             <tr>
@@ -2549,8 +2574,8 @@ function renderizarBitacora() {
                 <td class="font-monospace">${tieneLlegada(b) ? Number(b.km_llegada).toLocaleString('es-PE') : '<span class="text-muted">—</span>'}</td>
                 <td>${recorrido !== null ? `<span class="badge rounded-pill bg-primary fs-6">${formatoKm(recorrido)}</span>` : '<span class="text-muted">En ruta…</span>'}</td>
                 <td>${viajes}</td>
-                <td>${soles(fletes)}</td>
-                <td class="fw-bold">${solesKm}</td>
+                <td>${celdaCostosDia(costos)}</td>
+                <td class="fw-bold">${costoKm}</td>
                 <td><span class="badge ${revision.clase}"><i class="bi ${revision.icono} me-1"></i>${esc(revision.texto)}</span></td>
                 <td class="td-acciones text-nowrap">
                     <button class="btn btn-sm btn-outline-primary" onclick="abrirBitacora(${b.id})" title="${tieneLlegada(b) ? 'Editar' : 'Completar km de llegada'}"><i class="bi ${tieneLlegada(b) ? 'bi-pencil' : 'bi-flag-fill'}"></i></button>
@@ -2563,7 +2588,9 @@ function renderizarBitacora() {
     document.getElementById('bit-km-mes').textContent = formatoKm(kmMes);
     document.getElementById('bit-dias').textContent = diasCompletos;
     document.getElementById('bit-promedio').textContent = formatoKm(diasCompletos ? kmMes / diasCompletos : 0);
-    document.getElementById('bit-soles-km').textContent = kmMes > 0 ? soles(fletesConKm / kmMes) : 'S/ 0.00';
+    // Costo por km del mes: combustible + peajes de los días con km completo ÷ km de esos días
+    document.getElementById('bit-soles-km').textContent = !admin ? '—'
+        : kmMes > 0 ? soles(costosConKm / kmMes) : 'S/ 0.00';
 }
 
 function llenarFormBitacora(b) {
@@ -2640,8 +2667,12 @@ function calcularRecorridoBitacora() {
             caja.innerHTML = '<i class="bi bi-x-octagon-fill"></i> <span>El km de regreso no puede ser menor que el de salida</span>';
         } else {
             const guias = guiasPropiasDelDia(fecha);
-            const fletes = guias.reduce((acc, g) => acc + num(g.subtotal || g.tarifa_sin_igv), 0);
-            const extra = guias.length && recorrido > 0 ? ` · ${guias.length} ${guias.length === 1 ? 'viaje' : 'viajes'} · ${soles(fletes / recorrido)} por km` : '';
+            const costos = costosDelDia(fecha);
+            const textoViajes = guias.length ? ` · ${guias.length} ${guias.length === 1 ? 'viaje' : 'viajes'}` : '';
+            const textoCosto = esAdmin() && recorrido > 0 && costos.total > 0
+                ? ` · costo ${soles(costos.total / recorrido)} por km (combustible + peajes: ${soles(costos.total)})`
+                : '';
+            const extra = textoViajes + textoCosto;
             caja.classList.add('recorrido-ok');
             caja.innerHTML = `<i class="bi bi-signpost-split-fill"></i> <span>Recorrido del día: <strong>${formatoKm(recorrido)}</strong>${extra}</span>`;
         }
