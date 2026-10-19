@@ -75,7 +75,7 @@ let GRAFICOS = {};       // instancias de Chart.js por id de canvas
 let FILTRO_GUIAS = 'TODAS';
 let FILTRO_TIPO_GUIA = 'TODAS'; // pestañas: TODAS / REMITENTE / TRANSPORTISTA
 let GUIA_EDITANDO = null;       // id de la guía que se está editando (null = registrando una nueva)
-let DB = { guias: [], gastos: [], asistencia: [], mantenimiento: [], choferes: [], perfiles: [], bitacora: [] };
+let DB = { guias: [], gastos: [], asistencia: [], mantenimiento: [], choferes: [], perfiles: [], bitacora: [], documentos_vehiculo: [] };
 let PREFACTURAS = [];   // grupos por cliente pendientes de facturar
 let POR_COBRAR = [];    // grupos por cliente facturados sin cobrar
 let SALDOS_PAGO = {};   // "CHOFER|NOMBRE" / "TERCERO|NOMBRE" → saldo pendiente
@@ -190,6 +190,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('buscarGuia').addEventListener('input', renderizarGuias);
     document.getElementById('bitacoraMes').addEventListener('change', renderizarBitacora);
     document.getElementById('form-bitacora').addEventListener('submit', guardarBitacora);
+    document.getElementById('form-documento-vehiculo').addEventListener('submit', guardarDocumentoVehiculo);
     prepararFormularioViaje();
     document.querySelectorAll('#pestanas-tipo-guia .nav-link').forEach(pestana => {
         pestana.addEventListener('click', function () {
@@ -426,7 +427,7 @@ function programarRender() {
 }
 
 async function cargarDatos() {
-    const tablas = ['guias', 'asistencia', 'mantenimiento', 'choferes', 'bitacora'];
+    const tablas = ['guias', 'asistencia', 'mantenimiento', 'choferes', 'bitacora', 'documentos_vehiculo'];
     if (esAdmin()) tablas.push('gastos', 'perfiles');
 
     const respuestas = await Promise.all(tablas.map(t => supabaseClient.from(t).select('*')));
@@ -452,6 +453,7 @@ async function cargarDatos() {
     DB.gastos.sort(recientePrimero);
     DB.mantenimiento.sort((a, b) => b.id - a.id);
     DB.bitacora.sort(recientePrimero);
+    DB.documentos_vehiculo.sort((a, b) => String(b.fecha_fin || '').localeCompare(String(a.fecha_fin || '')) || (b.id - a.id));
     DB.choferes = DB.choferes.map(normalizarChofer).sort((a, b) => a.nombre.localeCompare(b.nombre));
     DB.perfiles.sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
@@ -512,6 +514,8 @@ async function renderizarTodo() {
         renderizarPrefacturacion();
         renderizarAsistencia();
         renderizarMantenimiento();
+        renderizarDocumentosVehiculo();
+        renderizarAvisosVencimiento();
         renderizarBitacora();
         actualizarListasSugeridas();
 
@@ -1953,35 +1957,16 @@ function mostrarArchivoComprobante() {
     caja.classList.add('con-archivo');
 }
 
-// Sube el archivo a Supabase Storage y devuelve su ruta (o null si falló)
+// Sube el archivo del comprobante a Supabase Storage y devuelve su ruta (o null si falló)
 async function subirArchivoComprobante(archivo, fecha) {
-    const nombreLimpio = archivo.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_');
-    const ruta = `${(fecha || hoyLocal()).slice(0, 7)}/${Date.now()}-${nombreLimpio}`;
-    const { error } = await supabaseClient.storage.from(BUCKET_COMPROBANTES)
-        .upload(ruta, archivo, { contentType: archivo.type || undefined, upsert: false });
-    if (error) {
-        console.error(error);
-        const falta = /bucket|not found/i.test(error.message) ? ' (falta ejecutar migracion_v6_comprobante_archivo.sql en Supabase)' : '';
-        mostrarError(`No se pudo subir el archivo del comprobante: ${error.message}${falta}`);
-        return null;
-    }
-    return ruta;
+    return subirArchivoA(BUCKET_COMPROBANTES, archivo, (fecha || hoyLocal()).slice(0, 7), 'migracion_v6_comprobante_archivo.sql');
 }
 
-// Abre el archivo con un enlace temporal (5 minutos): la carpeta es privada
+// Abre el comprobante con un enlace temporal (la carpeta es privada)
 async function verComprobante(idGasto) {
     const gasto = DB.gastos.find(g => g.id === idGasto);
     if (!gasto || !gasto.comprobante_archivo) return;
-    const ventana = window.open('', '_blank'); // se abre ya, para que el navegador no la bloquee
-    const { data, error } = await supabaseClient.storage.from(BUCKET_COMPROBANTES)
-        .createSignedUrl(gasto.comprobante_archivo, 300);
-    if (error || !data?.signedUrl) {
-        if (ventana) ventana.close();
-        mostrarError('No se pudo abrir el comprobante: ' + (error?.message || 'archivo no encontrado'));
-        return;
-    }
-    if (ventana) ventana.location.href = data.signedUrl;
-    else window.location.href = data.signedUrl;
+    await abrirArchivoPrivado(BUCKET_COMPROBANTES, gasto.comprobante_archivo);
 }
 
 // Un chofer de un vehículo tercero no es chofer de Aravema: solo aparece en "Transportistas terceros".
@@ -2820,6 +2805,317 @@ async function eliminarBitacora(id) {
     if (!confirm('¿Eliminar este registro de kilometraje?')) return;
     await ejecutar(supabaseClient.from('bitacora').delete().eq('id', id), 'No se pudo eliminar');
     await renderizarTodo();
+}
+
+// -------------------------------------------------------------
+// SOAT Y REVISIÓN TÉCNICA DEL VEHÍCULO
+// -------------------------------------------------------------
+const BUCKET_DOCUMENTOS = 'documentos-vehiculo';
+const TIPOS_DOCUMENTO = {
+    SOAT: { nombre: 'SOAT', icono: 'bi-shield-check', entidad: 'Compañía de seguros', ejemplo: 'Ej. Mapfre Perú',
+        frase: 'El SOAT', vencido: 'VENCIDO', registrado: 'registrado' },
+    REVISION_TECNICA: { nombre: 'Revisión Técnica', icono: 'bi-clipboard2-check', entidad: 'Empresa certificadora', ejemplo: 'Ej. CERVEP S.A.C.',
+        frase: 'La revisión técnica', vencido: 'VENCIDA', registrado: 'registrada' }
+};
+const DIAS_AVISO = 30;   // amarillo: faltan 30 días o menos
+const DIAS_URGENTE = 15; // rojo: faltan 15 días o menos (o ya venció)
+
+function formatoFecha(fechaISO) {
+    return fechaISO ? fechaISO.split('-').reverse().join('/') : '-';
+}
+
+// Días desde hoy (hora Perú) hasta la fecha; negativo = ya pasó
+function diasHasta(fechaISO) {
+    return Math.round((Date.parse(fechaISO + 'T00:00:00Z') - Date.parse(hoyLocal() + 'T00:00:00Z')) / 86400000);
+}
+
+// El documento vigente de cada tipo es el que vence más tarde
+function documentoActual(tipo) {
+    return DB.documentos_vehiculo.find(d => d.tipo === tipo) || null; // ya están ordenados por fecha_fin desc
+}
+
+function estadoDocumento(doc) {
+    const dias = diasHasta(doc.fecha_fin);
+    if (dias < 0) return { nivel: 'vencido', clase: 'bg-danger', texto: 'VENCIDO', detalle: `Venció hace ${-dias} ${-dias === 1 ? 'día' : 'días'}` };
+    if (dias <= DIAS_URGENTE) return { nivel: 'urgente', clase: 'bg-danger', texto: 'URGENTE', detalle: dias === 0 ? 'Vence HOY' : `Vence en ${dias} ${dias === 1 ? 'día' : 'días'}` };
+    if (dias <= DIAS_AVISO) return { nivel: 'aviso', clase: 'bg-warning text-dark', texto: 'POR VENCER', detalle: `Vence en ${dias} días` };
+    return { nivel: 'ok', clase: 'bg-success', texto: 'VIGENTE', detalle: `Vence en ${dias} días` };
+}
+
+function renderizarDocumentosVehiculo() {
+    const admin = esAdmin();
+
+    // Tarjetas de estado (SOAT y Revisión Técnica)
+    document.getElementById('estado-documentos').innerHTML = Object.entries(TIPOS_DOCUMENTO).map(([tipo, info]) => {
+        const doc = documentoActual(tipo);
+        if (!doc) {
+            return `
+                <div class="col-md-6">
+                    <div class="tarjeta-documento nivel-falta">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h6 class="fw-bold m-0"><i class="bi ${info.icono} me-1"></i> ${info.nombre}</h6>
+                            <span class="badge bg-secondary">SIN REGISTRO</span>
+                        </div>
+                        <p class="small text-muted my-2">Aún no hay ningún ${info.nombre} registrado.</p>
+                        <button class="btn btn-sm btn-primary" onclick="abrirDocumentoVehiculo(null, '${tipo}')"><i class="bi bi-plus-lg me-1"></i> Registrar</button>
+                    </div>
+                </div>`;
+        }
+        const estado = estadoDocumento(doc);
+        const desaprobado = doc.resultado === 'DESAPROBADO';
+        return `
+            <div class="col-md-6">
+                <div class="tarjeta-documento nivel-${estado.nivel}">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <h6 class="fw-bold m-0"><i class="bi ${info.icono} me-1"></i> ${info.nombre}</h6>
+                        <span class="badge ${estado.clase}">${estado.texto}</span>
+                    </div>
+                    <div class="documento-vence">${estado.detalle}</div>
+                    <div class="small text-muted">Vence el <strong>${formatoFecha(doc.fecha_fin)}</strong> · ${esc(doc.entidad || '-')}</div>
+                    <div class="small text-muted font-monospace">N° ${esc(doc.numero || '-')}</div>
+                    ${desaprobado ? '<div class="small text-danger fw-bold mt-1"><i class="bi bi-x-octagon-fill me-1"></i>Inspección DESAPROBADA</div>' : ''}
+                    <div class="d-flex gap-2 mt-2 flex-wrap">
+                        ${doc.archivo ? `<button class="btn btn-sm btn-outline-primary" onclick="verArchivoDocumento(${doc.id})"><i class="bi bi-eye me-1"></i> Ver documento</button>` : `<button class="btn btn-sm btn-outline-secondary" onclick="abrirDocumentoVehiculo(${doc.id})"><i class="bi bi-paperclip me-1"></i> Adjuntar archivo</button>`}
+                        ${estado.nivel !== 'ok' ? `<button class="btn btn-sm btn-primary" onclick="abrirDocumentoVehiculo(null, '${tipo}')"><i class="bi bi-arrow-repeat me-1"></i> Registrar renovación</button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+    }).join('');
+
+    // Historial
+    const vigentes = new Set(Object.keys(TIPOS_DOCUMENTO).map(t => documentoActual(t)?.id));
+    document.getElementById('tabla-documentos-body').innerHTML = DB.documentos_vehiculo.map(d => {
+        const info = TIPOS_DOCUMENTO[d.tipo] || { nombre: d.tipo, icono: 'bi-file-earmark' };
+        // Los anteriores ya reemplazados se muestran en gris, sin alarma
+        const estado = vigentes.has(d.id) ? estadoDocumento(d)
+            : diasHasta(d.fecha_fin) < 0 ? { clase: 'bg-secondary', texto: 'VENCIDO' } : { clase: 'bg-light text-dark border', texto: 'ANTERIOR' };
+        return `
+            <tr>
+                <td class="fw-semibold text-nowrap"><i class="bi ${info.icono} me-1 text-primary"></i>${info.nombre}${d.resultado ? `<small class="d-block ${d.resultado === 'APROBADO' ? 'text-success' : 'text-danger'}">${esc(d.resultado)}</small>` : ''}</td>
+                <td>${esc(d.entidad || '-')}${d.observaciones ? `<small class="d-block text-muted">${esc(d.observaciones)}</small>` : ''}</td>
+                <td class="font-monospace small">${esc(d.numero || '-')}</td>
+                <td class="text-nowrap">${formatoFecha(d.fecha_inicio)}</td>
+                <td class="text-nowrap fw-semibold">${formatoFecha(d.fecha_fin)}</td>
+                <td><span class="badge ${estado.clase}">${estado.texto}</span></td>
+                <td>${d.archivo
+                    ? `<button class="btn btn-sm btn-link p-0 fw-semibold" onclick="verArchivoDocumento(${d.id})"><i class="bi bi-paperclip"></i> Ver</button>`
+                    : '<span class="text-muted small">Sin archivo</span>'}</td>
+                <td class="td-acciones text-nowrap">
+                    <button class="btn btn-sm btn-outline-primary" onclick="abrirDocumentoVehiculo(${d.id})" title="Editar / adjuntar archivo"><i class="bi bi-pencil"></i></button>
+                    ${admin ? `<button class="btn btn-sm btn-outline-danger" onclick="eliminarDocumentoVehiculo(${d.id})" title="Eliminar"><i class="bi bi-trash"></i></button>` : ''}
+                </td>
+            </tr>`;
+    }).join('') || `<tr><td colspan="8" class="text-center text-muted p-3">Sin documentos registrados.</td></tr>`;
+
+    const entidades = new Set(DB.documentos_vehiculo.map(d => d.entidad).filter(Boolean));
+    document.getElementById('lista-entidades-doc').innerHTML = [...entidades].map(e => `<option value="${esc(e)}">`).join('');
+}
+
+// Aviso en el Panel Principal y marca en el menú cuando falta poco o ya venció
+function renderizarAvisosVencimiento() {
+    const avisos = [];
+    Object.entries(TIPOS_DOCUMENTO).forEach(([tipo, info]) => {
+        const doc = documentoActual(tipo);
+        if (!doc) {
+            avisos.push({ nivel: 'aviso', tipo, texto: `${info.frase} del C5T-850 no está ${info.registrado} en el sistema.`, accion: 'Registrar' });
+            return;
+        }
+        const estado = estadoDocumento(doc);
+        if (estado.nivel === 'vencido') {
+            avisos.push({ nivel: 'urgente', tipo, texto: `${info.frase} del C5T-850 está ${info.vencido} desde el ${formatoFecha(doc.fecha_fin)} (${estado.detalle.toLowerCase()}).`, accion: 'Registrar renovación' });
+        } else if (estado.nivel === 'urgente') {
+            avisos.push({ nivel: 'urgente', tipo, texto: `${info.frase} del C5T-850 ${estado.detalle === 'Vence HOY' ? 'vence HOY' : estado.detalle.toLowerCase()} (${formatoFecha(doc.fecha_fin)}).`, accion: 'Registrar renovación' });
+        } else if (estado.nivel === 'aviso') {
+            avisos.push({ nivel: 'aviso', tipo, texto: `${info.frase} del C5T-850 ${estado.detalle.toLowerCase()} (${formatoFecha(doc.fecha_fin)}). Programa la renovación.`, accion: 'Registrar renovación' });
+        }
+        if (tipo === 'REVISION_TECNICA' && doc.resultado === 'DESAPROBADO') {
+            avisos.push({ nivel: 'urgente', tipo, texto: 'La última revisión técnica del C5T-850 salió DESAPROBADA. Hay que corregir y volver a pasarla.', accion: 'Registrar nueva inspección' });
+        }
+    });
+
+    document.getElementById('avisos-vencimiento').innerHTML = avisos
+        .sort((a, b) => (a.nivel === 'urgente' ? 0 : 1) - (b.nivel === 'urgente' ? 0 : 1))
+        .map(a => `
+            <div class="aviso-vencimiento aviso-${a.nivel}" role="alert">
+                <i class="bi ${a.nivel === 'urgente' ? 'bi-exclamation-octagon-fill' : 'bi-exclamation-triangle-fill'}"></i>
+                <div class="flex-grow-1">
+                    <strong>${a.nivel === 'urgente' ? '¡URGENTE! ' : 'Atención: '}</strong>${esc(a.texto)}
+                </div>
+                <div class="d-flex gap-2 flex-shrink-0">
+                    <button class="btn btn-sm ${a.nivel === 'urgente' ? 'btn-light' : 'btn-dark'}" onclick="abrirDocumentoVehiculo(null, '${a.tipo}')">${a.accion}</button>
+                    <button class="btn btn-sm btn-outline-${a.nivel === 'urgente' ? 'light' : 'dark'}" onclick="cambiarSeccion('section-mantenimiento')">Ver</button>
+                </div>
+            </div>
+        `).join('');
+
+    const badge = document.getElementById('badge-vencimientos');
+    const hayUrgente = avisos.some(a => a.nivel === 'urgente');
+    badge.classList.toggle('d-none', avisos.length === 0);
+    badge.className = `badge rounded-pill ms-1 ${hayUrgente ? 'bg-danger' : 'bg-warning text-dark'} ${avisos.length ? '' : 'd-none'}`;
+}
+
+function toggleTipoDocumento() {
+    const tipo = document.querySelector('input[name="docVehTipo"]:checked').value;
+    const info = TIPOS_DOCUMENTO[tipo];
+    document.getElementById('docVehEntidadEtiqueta').textContent = info.entidad;
+    document.getElementById('docVehEntidad').placeholder = info.ejemplo;
+    document.getElementById('docVehResultadoGrupo').classList.toggle('d-none', tipo !== 'REVISION_TECNICA');
+}
+
+// SOAT y revisión técnica duran un año: se sugiere el vencimiento
+function sugerirVencimientoDocumento() {
+    const desde = document.getElementById('docVehDesde').value;
+    const hasta = document.getElementById('docVehHasta');
+    if (!desde || hasta.value) return;
+    const [a, m, d] = desde.split('-');
+    hasta.value = `${Number(a) + 1}-${m}-${d}`;
+}
+
+function mostrarArchivoDocumento() {
+    const archivo = document.getElementById('docVehArchivo').files[0];
+    const texto = document.getElementById('docVehArchivoTexto');
+    const caja = texto.closest('.adjunto-comprobante');
+    const id = Number(document.getElementById('docVehId').value);
+    const existente = id && DB.documentos_vehiculo.find(d => d.id === id)?.archivo;
+    if (!archivo) {
+        texto.textContent = existente
+            ? 'Ya tiene un archivo adjunto · clic para reemplazarlo'
+            : `Adjuntar foto o PDF del documento (máx. ${MAX_MB_COMPROBANTE} MB)`;
+        caja.classList.toggle('con-archivo', !!existente);
+        return;
+    }
+    if (archivo.size > MAX_MB_COMPROBANTE * 1024 * 1024) {
+        alert(`El archivo pesa más de ${MAX_MB_COMPROBANTE} MB. Sube un PDF más liviano o una foto.`);
+        document.getElementById('docVehArchivo').value = '';
+        mostrarArchivoDocumento();
+        return;
+    }
+    const peso = archivo.size < 1024 * 1024 ? `${Math.max(1, Math.round(archivo.size / 1024))} KB` : `${(archivo.size / 1024 / 1024).toFixed(1)} MB`;
+    texto.textContent = `${archivo.name} (${peso}) · clic para cambiar`;
+    caja.classList.add('con-archivo');
+}
+
+// id = null → registrar nuevo (tipo opcional); con id → editar / adjuntar archivo
+function abrirDocumentoVehiculo(id, tipo) {
+    const form = document.getElementById('form-documento-vehiculo');
+    form.reset();
+    const doc = id ? DB.documentos_vehiculo.find(d => d.id === id) : null;
+    document.getElementById('docVehId').value = doc ? doc.id : '';
+    document.getElementById('docVehTitulo').textContent = doc ? `Editar ${TIPOS_DOCUMENTO[doc.tipo]?.nombre || 'documento'}` : 'Registrar SOAT / Revisión Técnica';
+
+    const tipoElegido = doc ? doc.tipo : (tipo || 'SOAT');
+    document.getElementById(tipoElegido === 'REVISION_TECNICA' ? 'docVehRT' : 'docVehSoat').checked = true;
+    if (doc) {
+        document.getElementById('docVehEntidad').value = doc.entidad || '';
+        document.getElementById('docVehNumero').value = doc.numero || '';
+        document.getElementById('docVehDesde').value = doc.fecha_inicio || '';
+        document.getElementById('docVehHasta').value = doc.fecha_fin || '';
+        document.getElementById('docVehObs').value = doc.observaciones || '';
+        document.getElementById(doc.resultado === 'DESAPROBADO' ? 'docVehDesaprobado' : 'docVehAprobado').checked = true;
+    } else {
+        // Renovación: empieza donde vence el actual
+        const actual = documentoActual(tipoElegido);
+        document.getElementById('docVehDesde').value = actual && diasHasta(actual.fecha_fin) >= -30 ? actual.fecha_fin : hoyLocal();
+        sugerirVencimientoDocumento();
+        if (actual) document.getElementById('docVehEntidad').value = actual.entidad || '';
+    }
+    toggleTipoDocumento();
+    mostrarArchivoDocumento();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('documentoVehiculoModal')).show();
+}
+
+async function guardarDocumentoVehiculo(e) {
+    e.preventDefault();
+    const id = Number(document.getElementById('docVehId').value);
+    const tipo = document.querySelector('input[name="docVehTipo"]:checked').value;
+    const desde = document.getElementById('docVehDesde').value || null;
+    const hasta = document.getElementById('docVehHasta').value;
+    if (desde && hasta < desde) { alert('La fecha de vencimiento no puede ser anterior a la de inicio.'); return; }
+
+    const registro = {
+        tipo,
+        placa: 'C5T-850',
+        entidad: document.getElementById('docVehEntidad').value.trim() || null,
+        numero: document.getElementById('docVehNumero').value.trim().toUpperCase() || null,
+        fecha_inicio: desde,
+        fecha_fin: hasta,
+        resultado: tipo === 'REVISION_TECNICA' ? document.querySelector('input[name="docVehResultado"]:checked').value : null,
+        observaciones: document.getElementById('docVehObs').value.trim() || null
+    };
+
+    const anterior = id ? DB.documentos_vehiculo.find(d => d.id === id) : null;
+    const archivo = document.getElementById('docVehArchivo').files[0];
+    if (archivo) {
+        const ruta = await subirArchivoA(BUCKET_DOCUMENTOS, archivo, `${tipo.toLowerCase()}/${hasta.slice(0, 4)}`, 'migracion_v7_documentos_vehiculo.sql');
+        if (!ruta) return;
+        registro.archivo = ruta;
+    }
+
+    const operacion = id
+        ? supabaseClient.from('documentos_vehiculo').update(registro).eq('id', id)
+        : supabaseClient.from('documentos_vehiculo').insert([registro]);
+    const ok = await ejecutar(operacion, 'No se pudo guardar el documento');
+    if (!ok) {
+        if (registro.archivo) await supabaseClient.storage.from(BUCKET_DOCUMENTOS).remove([registro.archivo]);
+        return;
+    }
+    // Si se reemplazó el archivo, se borra el anterior
+    if (registro.archivo && anterior?.archivo) {
+        await supabaseClient.storage.from(BUCKET_DOCUMENTOS).remove([anterior.archivo]);
+    }
+
+    cerrarModal('documentoVehiculoModal');
+    await renderizarTodo();
+    const info = TIPOS_DOCUMENTO[tipo];
+    const accion = id ? (tipo === 'SOAT' ? 'actualizado' : 'actualizada') : info.registrado;
+    mostrarAlerta(`¡${info.frase} quedó ${accion}! Vence el ${formatoFecha(hasta)}.`, 'success');
+}
+
+async function verArchivoDocumento(id) {
+    const doc = DB.documentos_vehiculo.find(d => d.id === id);
+    if (!doc?.archivo) return;
+    await abrirArchivoPrivado(BUCKET_DOCUMENTOS, doc.archivo);
+}
+
+async function eliminarDocumentoVehiculo(id) {
+    const doc = DB.documentos_vehiculo.find(d => d.id === id);
+    if (!doc) return;
+    const nombre = TIPOS_DOCUMENTO[doc.tipo]?.nombre || 'documento';
+    if (!confirm(`¿Eliminar el ${nombre} que vence el ${formatoFecha(doc.fecha_fin)}?${doc.archivo ? '\n\nTambién se borrará su archivo adjunto.' : ''}`)) return;
+    const ok = await ejecutar(supabaseClient.from('documentos_vehiculo').delete().eq('id', id), 'No se pudo eliminar');
+    if (ok && doc.archivo) await supabaseClient.storage.from(BUCKET_DOCUMENTOS).remove([doc.archivo]);
+    await renderizarTodo();
+}
+
+// -------------------------------------------------------------
+// ARCHIVOS PRIVADOS EN SUPABASE STORAGE (comprobantes y documentos)
+// -------------------------------------------------------------
+// Sube un archivo y devuelve su ruta (o null si falló; el error ya se mostró)
+async function subirArchivoA(bucket, archivo, carpeta, archivoSql) {
+    const nombreLimpio = archivo.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_');
+    const ruta = `${carpeta}/${Date.now()}-${nombreLimpio}`;
+    const { error } = await supabaseClient.storage.from(bucket)
+        .upload(ruta, archivo, { contentType: archivo.type || undefined, upsert: false });
+    if (error) {
+        console.error(error);
+        const falta = /bucket|not found/i.test(error.message) ? ` (falta ejecutar ${archivoSql} en Supabase)` : '';
+        mostrarError(`No se pudo subir el archivo: ${error.message}${falta}`);
+        return null;
+    }
+    return ruta;
+}
+
+// Abre un archivo privado con un enlace temporal de 5 minutos
+async function abrirArchivoPrivado(bucket, ruta) {
+    const ventana = window.open('', '_blank'); // se abre ya, para que el navegador no la bloquee
+    const { data, error } = await supabaseClient.storage.from(bucket).createSignedUrl(ruta, 300);
+    if (error || !data?.signedUrl) {
+        if (ventana) ventana.close();
+        mostrarError('No se pudo abrir el archivo: ' + (error?.message || 'archivo no encontrado'));
+        return;
+    }
+    if (ventana) ventana.location.href = data.signedUrl;
+    else window.location.href = data.signedUrl;
 }
 
 // -------------------------------------------------------------

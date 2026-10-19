@@ -115,6 +115,7 @@
                 </a>
                 <a href="#" class="list-group-item list-group-item-action nav-link" data-section="section-mantenimiento">
                     <i class="bi bi-wrench-adjustable me-2"></i> Mantenimiento Flota
+                    <span class="badge rounded-pill bg-danger ms-1 d-none" id="badge-vencimientos" title="SOAT o revisión técnica por vencer">!</span>
                 </a>
                 <a href="#" class="list-group-item list-group-item-action nav-link solo-admin" data-section="section-ingresos-gastos">
                     <i class="bi bi-wallet2 me-2"></i> Contabilidad / Caja
@@ -160,6 +161,9 @@
 
                 <!-- SECCIÓN 1: PANEL PRINCIPAL -->
                 <div id="section-panel" class="content-section">
+                    <!-- Avisos de SOAT / revisión técnica por vencer -->
+                    <div id="avisos-vencimiento"></div>
+
                     <div class="row g-3 mb-4 solo-admin" id="kpi-container">
                         <div class="col-sm-6 col-xl-3">
                             <div class="card card-kpi border-0 shadow-sm p-3">
@@ -651,6 +655,40 @@
 
                 <!-- SECCIÓN 6: MANTENIMIENTO -->
                 <div id="section-mantenimiento" class="content-section d-none">
+                    <!-- SOAT y revisión técnica -->
+                    <div class="card border-0 shadow-sm p-4 mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div>
+                                <h4 class="fw-bold m-0 font-titulo"><i class="bi bi-shield-check text-primary me-2"></i>Documentos del Vehículo (C5T-850)</h4>
+                                <small class="text-muted">SOAT y certificado de inspección técnica vehicular. Avisa en el Panel Principal cuando estén por vencer.</small>
+                            </div>
+                            <button class="btn btn-primary fw-bold btn-sm shadow-sm" onclick="abrirDocumentoVehiculo(null)">
+                                <i class="bi bi-plus-lg me-1"></i> Registrar SOAT / Revisión Técnica
+                            </button>
+                        </div>
+
+                        <div class="row g-3 mb-4" id="estado-documentos"></div>
+
+                        <h6 class="fw-bold mb-2"><i class="bi bi-clock-history me-1"></i> Historial</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle style-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Compañía / Certificadora</th>
+                                        <th>N° Certificado</th>
+                                        <th>Desde</th>
+                                        <th>Hasta</th>
+                                        <th>Estado</th>
+                                        <th>Archivo</th>
+                                        <th class="th-acciones">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-documentos-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="card border-0 shadow-sm p-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h4 class="fw-bold m-0"><i class="bi bi-wrench-adjustable text-primary me-2"></i>Control de Mantenimiento de Flota (C5T-850)</h4>
@@ -1287,6 +1325,75 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal SOAT / Revisión técnica -->
+    <div class="modal fade" id="documentoVehiculoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-shield-check me-2"></i><span id="docVehTitulo">Registrar Documento</span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-documento-vehiculo">
+                        <input type="hidden" id="docVehId">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Documento</label>
+                            <div class="segmentado" role="group" aria-label="Tipo de documento">
+                                <input type="radio" class="btn-check" name="docVehTipo" id="docVehSoat" value="SOAT" checked onchange="toggleTipoDocumento()">
+                                <label class="btn" for="docVehSoat"><i class="bi bi-dot"></i>SOAT</label>
+                                <input type="radio" class="btn-check" name="docVehTipo" id="docVehRT" value="REVISION_TECNICA" onchange="toggleTipoDocumento()">
+                                <label class="btn" for="docVehRT"><i class="bi bi-dot"></i>Revisión Técnica</label>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" for="docVehEntidad" id="docVehEntidadEtiqueta">Compañía de seguros</label>
+                                <input type="text" class="form-control interactive-input" id="docVehEntidad" list="lista-entidades-doc" placeholder="Ej. Mapfre Perú">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" for="docVehNumero">N° de certificado</label>
+                                <input type="text" class="form-control interactive-input font-monospace" id="docVehNumero" placeholder="Ej. 0000000000003022500402585">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold" for="docVehDesde">Vigente desde</label>
+                                <input type="date" class="form-control interactive-input" id="docVehDesde" onchange="sugerirVencimientoDocumento()">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold" for="docVehHasta">Vence el <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control interactive-input" id="docVehHasta" required>
+                            </div>
+                            <div class="col-12 d-none" id="docVehResultadoGrupo">
+                                <label class="form-label fw-semibold">Resultado de la inspección</label>
+                                <div class="segmentado" role="group" aria-label="Resultado">
+                                    <input type="radio" class="btn-check" name="docVehResultado" id="docVehAprobado" value="APROBADO" checked>
+                                    <label class="btn" for="docVehAprobado"><i class="bi bi-dot"></i>Aprobado</label>
+                                    <input type="radio" class="btn-check" name="docVehResultado" id="docVehDesaprobado" value="DESAPROBADO">
+                                    <label class="btn" for="docVehDesaprobado"><i class="bi bi-dot"></i>Desaprobado</label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" for="docVehObs">Observaciones</label>
+                                <input type="text" class="form-control interactive-input" id="docVehObs" placeholder="Ej. Sin observaciones">
+                            </div>
+                            <div class="col-12">
+                                <label class="adjunto-comprobante" for="docVehArchivo">
+                                    <i class="bi bi-paperclip"></i>
+                                    <span id="docVehArchivoTexto">Adjuntar foto o PDF del documento (máx. 10 MB)</span>
+                                    <input type="file" class="d-none" id="docVehArchivo" accept="application/pdf,image/jpeg,image/png,image/webp,image/heic" onchange="mostrarArchivoDocumento()">
+                                </label>
+                            </div>
+                        </div>
+                        <div class="text-end mt-4">
+                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-save me-1"></i> Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <datalist id="lista-entidades-doc"></datalist>
 
     <!-- Modal Mantenimiento -->
     <div class="modal fade" id="nuevoMantenimientoModal" tabindex="-1" aria-hidden="true">

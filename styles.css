@@ -878,3 +878,58 @@ body.cargando #barra-carga {
 
 /* Fechas del historial de Caja en una sola línea */
 #tabla-gastos-body td:first-child, #tabla-historial-pagos-body td:first-child { white-space: nowrap; }
+
+/* ---------------------------------------------------------------------
+   SOAT Y REVISIÓN TÉCNICA
+   --------------------------------------------------------------------- */
+.tarjeta-documento {
+    border-radius: 0.9rem;
+    padding: 16px 18px;
+    height: 100%;
+    border: 1px solid var(--agro-borde);
+    border-left: 6px solid var(--agro-verde-hoja);
+    background: #fff;
+}
+.tarjeta-documento.nivel-aviso { border-left-color: var(--agro-dorado); background: var(--agro-dorado-claro); }
+.tarjeta-documento.nivel-urgente,
+.tarjeta-documento.nivel-vencido { border-left-color: #c0442b; background: #fdecea; }
+.tarjeta-documento.nivel-falta { border-left-color: #b9b2a0; background: #f8f6ef; }
+.documento-vence {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 6px 0 2px;
+}
+.nivel-ok .documento-vence { color: var(--agro-verde-oscuro); }
+.nivel-aviso .documento-vence { color: #8a5a00; }
+.nivel-urgente .documento-vence,
+.nivel-vencido .documento-vence { color: #a5361f; }
+
+/* Aviso en el Panel Principal */
+.aviso-vencimiento {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: 0.9rem;
+    margin-bottom: 12px;
+    font-weight: 600;
+    flex-wrap: wrap;
+}
+.aviso-vencimiento > i { font-size: 1.8rem; }
+.aviso-urgente {
+    background: linear-gradient(120deg, #a5361f, #c0442b);
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(192, 68, 43, 0.35);
+    animation: latidoUrgente 2s ease-in-out infinite;
+}
+.aviso-aviso {
+    background: var(--agro-dorado-claro);
+    color: #5c3d00;
+    border: 1px solid #f0d9a0;
+}
+@keyframes latidoUrgente {
+    0%, 100% { box-shadow: 0 8px 22px rgba(192, 68, 43, 0.35); }
+    50% { box-shadow: 0 8px 30px rgba(192, 68, 43, 0.65); }
+}
+#badge-vencimientos { animation: latidoUrgente 2s ease-in-out infinite; }
